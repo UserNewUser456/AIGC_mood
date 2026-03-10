@@ -1,7 +1,6 @@
 """
 情绪愈疗平台 - Flask后端主应用
 技术栈：Python Flask + MySQL + SQLAlchemy + JWT
-
 功能模块：
 1. 用户管理：注册/登录/匿名模式/JWT认证
 2. 对话系统：LLM共情对话/多轮对话上下文/医生形象配置
@@ -9,7 +8,8 @@
 """
 
 import os
-from flask import Flask, jsonify
+import json
+from flask import Flask, jsonify, Response
 from flask_cors import CORS
 from extensions import db
 from flask_jwt_extended import JWTManager
@@ -37,7 +37,6 @@ CORS(app)
 jwt = JWTManager(app)
 
 # 数据库初始化
-from extensions import db
 db.init_app(app)
 
 # 注册蓝图
@@ -54,15 +53,18 @@ app.register_blueprint(risk_bp, url_prefix='/api/risk')
 # 健康检查端点
 @app.route('/health')
 def health_check():
-    return jsonify({
+    data = {
         "status": "healthy",
         "service": "emotion-healing-api",
         "version": "1.0.0"
-    })
+    }
+    # 手动处理 JSON，确保中文不转义
+    json_str = json.dumps(data, ensure_ascii=False, indent=2)
+    return Response(json_str, content_type='application/json; charset=utf-8')
 
 @app.route('/')
 def index():
-    return jsonify({
+    data = {
         "message": "情绪愈疗平台API服务",
         "version": "1.0.0",
         "endpoints": {
@@ -71,7 +73,17 @@ def index():
             "emotion": "/api/emotion",
             "risk": "/api/risk"
         }
-    })
+    }
+    # 手动处理 JSON，确保中文不转义（ensure_ascii=False 是关键！）
+    json_str = json.dumps(data, ensure_ascii=False, indent=2)
+    return Response(json_str, content_type='application/json; charset=utf-8')
+
+# 如果想让所有 jsonify 都自动处理中文，可以添加这个钩子
+@app.after_request
+def after_request(response):
+    if response.content_type == 'application/json':
+        response.charset = 'utf-8'
+    return response
 
 if __name__ == '__main__':
     # 创建数据库表
