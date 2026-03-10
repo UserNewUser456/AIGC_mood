@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单Vue页面</title>
+    <!-- 引入Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        
+        .input-group {
+            margin: 20px 0;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #409eff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: #66b1ff;
+        }
+        
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        li {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        li:last-child {
+            border-bottom: none;
+        }
+        
+        .delete-btn {
+            background: #f56c6c;
+            width: auto;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        .empty {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>{{ title }}</h1>
+            
+            <!-- 输入区域 -->
+            <div class="input-group">
+                <input 
+                    v-model="newItem" 
+                    @keyup.enter="addItem"
+                    placeholder="请输入内容..."
+                >
+                <button @click="addItem">添加</button>
+            </div>
+            
+            <!-- 列表显示 -->
+            <ul v-if="items.length > 0">
+                <li v-for="(item, index) in items" :key="index">
+                    <span>{{ item }}</span>
+                    <button class="delete-btn" @click="deleteItem(index)">删除</button>
+                </li>
+            </ul>
+            
+            <!-- 空状态 -->
+            <div v-else class="empty">
+                暂无数据，请添加！
+            </div>
+            
+            <!-- 统计 -->
+            <p style="text-align: center; color: #666;">
+                共 {{ items.length }} 条记录
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue;
+        
+        createApp({
+            setup() {
+                // 页面标题
+                const title = ref('📝 Vue Todo 列表');
+                
+                // 新增输入
+                const newItem = ref('');
+                
+                // 列表数据
+                const items = ref(['Vue', 'JavaScript', '前端开发']);
+                
+                // 添加项目
+                const addItem = () => {
+                    if (newItem.value.trim()) {
+                        items.value.push(newItem.value.trim());
+                        newItem.value = '';  // 清空输入框
+                    }
+                };
+                
+                // 删除项目
+                const deleteItem = (index) => {
+                    items.value.splice(index, 1);
+                };
+                
+                return {
+                    title,
+                    newItem,
+                    items,
+                    addItem,
+                    deleteItem
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

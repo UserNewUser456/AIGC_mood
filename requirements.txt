@@ -1,0 +1,18 @@
+# Flask Web框架
+Flask==2.3.3
+flask-cors==4.0.0
+
+# 数据库ORM
+Flask-SQLAlchemy==3.0.5
+PyMySQL==1.1.0
+
+# 认证和安全
+flask-jwt-extended==4.5.3
+Flask-Bcrypt==1.0.1
+
+# 环境变量管理
+python-dotenv==1.0.0
+
+# 其他依赖
+Werkzeug==2.3.7
+Jinja2==3.1.2

@@ -1,0 +1,13 @@
+# 情绪愈疗平台 - Python依赖包
+# 安装命令: pip install -r requirements.txt
+
+# Flask Web框架
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# 数据库
+PyMySQL==1.1.0
+pandas==2.1.0
+
+# 环境变量
+python-dotenv==1.0.0

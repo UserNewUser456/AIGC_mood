@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue功能测试</title>
+    <!-- 引入Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 引入Element Plus UI组件库 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/element-plus"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        #app {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .title {
+            text-align: center;
+            color: white;
+            font-size: 32px;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .test-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f5f7fa;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .test-item:hover {
+            background: #e8f4ff;
+            transform: translateX(5px);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 14px;
+            margin: 2px;
+        }
+        
+        .tag-success { background: #67c23a; color: white; }
+        .tag-warning { background: #e6a23c; color: white; }
+        .tag-danger { background: #f56c6c; color: white; }
+        .tag-info { background: #909399; color: white; }
+        
+        .emotion-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .input-demo {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            margin-top: 30px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1 class="title">🌸 Vue 3 功能测试 🌸</h1>
+        
+        <!-- 测试1: 数据绑定 -->
+        <div class="card">
+            <div class="card-title">📌 测试1: 数据绑定</div>
+            <div class="info-item">
+                <span>用户名:</span>
+                <span>{{ username }}</span>
+            </div>
+            <div class="info-item">
+                <span>当前时间:</span>
+                <span>{{ currentTime }}</span>
+            </div>
+            <div class="info-item">
+                <span>计算属性:</span>
+                <span>{{ greeting }}</span>
+            </div>
+        </div>
+        
+        <!-- 测试2: 列表渲染 -->
+        <div class="card">
+            <div class="card-title">📋 测试2: 列表渲染 (v-for)</div>
+            <p style="margin-bottom: 10px; color: #666;">我的情绪记录:</p>
+            <div class="test-item" v-for="(item, index) in emotions" :key="index">
+                <span>{{ item.date }} - </span>
+                <span class="tag" :class="'tag-' + item.tagType">{{ item.emotion }}</span>
+                <span>分数: {{ item.score }}</span>
+            </div>
+        </div>
+        
+        <!-- 测试3: 条件渲染 -->
+        <div class="card">
+            <div class="card-title">🔄 测试3: 条件渲染 (v-if/v-else)</div>
+            <div class="btn-group">
+                <el-button type="primary" @click="changeStatus('happy')">开心</el-button>
+                <el-button type="warning" @click="changeStatus('anxious')">焦虑</el-button>
+                <el-button type="danger" @click="changeStatus('sad')">悲伤</el-button>
+                <el-button @click="changeStatus('calm')">平静</el-button>
+            </div>
+            <div style="margin-top: 15px;">
+                <div v-if="currentMood === 'happy'" class="test-item">
+                    <span class="tag tag-success">😄 {{ moodMessage }}</span>
+                </div>
+                <div v-else-if="currentMood === 'anxious'" class="test-item">
+                    <span class="tag tag-warning">😰 {{ moodMessage }}</span>
+                </div>
+                <div v-else-if="currentMood === 'sad'" class="test-item">
+                    <span class="tag tag-danger">😢 {{ moodMessage }}</span>
+                </div>
+                <div v-else class="test-item">
+                    <span class="tag tag-info">😌 {{ moodMessage }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 测试4: 事件处理 -->
+        <div class="card">
+            <div class="card-title">🖱️ 测试4: 事件处理 (@click)</div>
+            <p style="margin-bottom: 10px; color: #666;">点击按钮测试事件:</p>
+            <div class="btn-group">
+                <el-button type="primary" @click="handleClick('你好！')">打招呼</el-button>
+                <el-button type="success" @click="handleClick('今天很开心！')">开心</el-button>
+                <el-button type="warning" @click="handleClick('有点担心...')">担心</el-button>
+                <el-button type="danger" @click="handleClick('心情不好...')">难过</el-button>
+            </div>
+            <div class="test-item" v-if="clickMessage" style="margin-top: 15px;">
+                <strong>点击结果:</strong> {{ clickMessage }}
+            </div>
+        </div>
+        
+        <!-- 测试5: 表单绑定 -->
+        <div class="card">
+            <div class="card-title">📝 测试5: 表单绑定 (v-model)</div>
+            <div class="input-demo">
+                <el-input v-model="inputText" placeholder="请输入内容" style="flex: 1;"></el-input>
+                <el-button type="primary" @click="addItem">添加</el-button>
+            </div>
+            <div style="margin-top: 10px;">
+                <el-tag 
+                    v-for="(tag, index) in inputTags" 
+                    :key="index" 
+                    closable 
+                    @close="removeTag(index)"
+                    style="margin: 5px;">
+                    {{ tag }}
+                </el-tag>
+            </div>
+        </div>
+        
+        <!-- 测试6: 计算属性 -->
+        <div class="card">
+            <div class="card-title">🧮 测试6: 计算属性 (computed)</div>
+            <div class="info-item">
+                <span>情绪分数列表:</span>
+                <span>{{ emotionScores }}</span>
+            </div>
+            <div class="info-item">
+                <span>平均分:</span>
+                <span><strong>{{ averageScore }}</strong> / 10</span>
+            </div>
+            <div class="info-item">
+                <span>最高分:</span>
+                <span><strong>{{ maxScore }}</strong> / 10</span>
+            </div>
+            <div class="info-item">
+                <span>情绪状态:</span>
+                <span class="tag" :class="scoreLevel.tagType">{{ scoreLevel.label }}</span>
+            </div>
+        </div>
+        
+        <!-- 测试7: 组件通信 (模拟) -->
+        <div class="card">
+            <div class="card-title">🔗 测试7: 组件状态管理</div>
+            <div class="info-item">
+                <span>全局计数器:</span>
+                <span><strong>{{ counter }}</strong></span>
+            </div>
+            <div class="btn-group">
+                <el-button type="primary" @click="counter++">+1</el-button>
+                <el-button type="danger" @click="counter--">-1</el-button>
+                <el-button @click="counter = 0">重置</el-button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Vue 3 测试页面 - 基于 Element Plus UI</p>
+            <p>版本: Vue 3.3.4 | Element Plus 2.3.9</p>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+        
+        const app = createApp({
+            setup() {
+                // ==================== 测试1: 数据绑定 ====================
+                // 使用ref创建响应式数据
+                const username = ref('测试用户');
+                const currentTime = ref('');
+                
+                // 计算属性：根据时间生成问候语
+                const greeting = computed(() => {
+                    const hour = new Date().getHours();
+                    if (hour < 6) return '夜深了，注意休息！';
+                    if (hour < 12) return '早上好！';
+                    if (hour < 14) return '中午好！';
+                    if (hour < 18) return '下午好！';
+                    return '晚上好！';
+                });
+                
+                // 更新当前时间
+                const updateTime = () => {
+                    const now = new Date();
+                    currentTime.value = now.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                };
+                
+                // ==================== 测试2: 列表渲染 ====================
+                const emotions = ref([
+                    { date: '2024-01-07', emotion: '开心', score: 8.5, tagType: 'success' },
+                    { date: '2024-01-06', emotion: '平静', score: 7.0, tagType: 'info' },
+                    { date: '2024-01-05', emotion: '焦虑', score: 4.5, tagType: 'warning' },
+                    { date: '2024-01-04', emotion: '悲伤', score: 3.5, tagType: 'danger' },
+                ]);
+                
+                // ==================== 测试3: 条件渲染 ====================
+                const currentMood = ref('calm');
+                const moodMessage = ref('保持平静是一种很好的状态');
+                
+                const changeStatus = (status) => {
+                    currentMood.value = status;
+                    const messages = {
+                        happy: '今天心情真好！继续保持~',
+                        anxious: '别担心，深呼吸放松一下',
+                        sad: '我理解你的感受，允许自己难过一会儿',
+                        calm: '保持平静是一种很好的状态'
+                    };
+                    moodMessage.value = messages[status];
+                };
+                
+                // ==================== 测试4: 事件处理 ====================
+                const clickMessage = ref('');
+                
+                const handleClick = (message) => {
+                    clickMessage.value = message;
+                    // 3秒后自动清除
+                    setTimeout(() => {
+                        clickMessage.value = '';
+                    }, 3000);
+                };
+                
+                // ==================== 测试5: 表单绑定 ====================
+                const inputText = ref('');
+                const inputTags = ref(['Vue', '测试', 'Element Plus']);
+                
+                const addItem = () => {
+                    if (inputText.value.trim()) {
+                        inputTags.value.push(inputText.value.trim());
+                        inputText.value = '';
+                    }
+                };
+                
+                const removeTag = (index) => {
+                    inputTags.value.splice(index, 1);
+                };
+                
+                // ==================== 测试6: 计算属性 ====================
+                const emotionScores = computed(() => {
+                    return emotions.value.map(e => e.score).join(', ');
+                });
+                
+                const averageScore = computed(() => {
+                    if (emotions.value.length === 0) return 0;
+                    const sum = emotions.value.reduce((acc, e) => acc + e.score, 0);
+                    return (sum / emotions.value.length).toFixed(1);
+                });
+                
+                const maxScore = computed(() => {
+                    if (emotions.value.length === 0) return 0;
+                    return Math.max(...emotions.value.map(e => e.score));
+                });
+                
+                const scoreLevel = computed(() => {
+                    const avg = parseFloat(averageScore.value);
+                    if (avg >= 7) return { label: '良好', tagType: 'tag-success' };
+                    if (avg >= 5) return { label: '一般', tagType: 'tag-warning' };
+                    return { label: '偏低', tagType: 'tag-danger' };
+                });
+                
+                // ==================== 测试7: 组件状态 ====================
+                const counter = ref(0);
+                
+                // ==================== 生命周期钩子 ====================
+                onMounted(() => {
+                    // 页面加载时更新时间和启动定时器
+                    updateTime();
+                    // 每秒更新时间
+                    const timer = setInterval(updateTime, 1000);
+                    
+                    // 组件卸载时清除定时器
+                    onUnmounted(() => {
+                        clearInterval(timer);
+                    });
+                });
+                
+                // 返回所有响应式数据和方法
+                return {
+                    // 测试1
+                    username,
+                    currentTime,
+                    greeting,
+                    
+                    // 测试2
+                    emotions,
+                    
+                    // 测试3
+                    currentMood,
+                    moodMessage,
+                    changeStatus,
+                    
+                    // 测试4
+                    clickMessage,
+                    handleClick,
+                    
+                    // 测试5
+                    inputText,
+                    inputTags,
+                    addItem,
+                    removeTag,
+                    
+                    // 测试6
+                    emotionScores,
+                    averageScore,
+                    maxScore,
+                    scoreLevel,
+                    
+                    // 测试7
+                    counter,
+                };
+            }
+        });
+        
+        // 使用Element Plus
+        app.use(ElementPlus);
+        app.mount('#app');
+    </script>
+</body>
+</html>
