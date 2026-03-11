@@ -34,8 +34,8 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        # 生成访问令牌
-        access_token = create_access_token(identity=user.id)
+        # 生成访问令牌 (转换为字符串)
+        access_token = create_access_token(identity=str(user.id))
         
         return jsonify({
             "success": True,
@@ -63,8 +63,8 @@ def login():
         if not user or not user.check_password(data['password']):
             return jsonify({"success": False, "message": "用户名或密码错误"}), 401
         
-        # 生成访问令牌
-        access_token = create_access_token(identity=user.id)
+        # 生成访问令牌 (转换为字符串)
+        access_token = create_access_token(identity=str(user.id))
         
         return jsonify({
             "success": True,
@@ -92,8 +92,8 @@ def create_anonymous_user():
         db.session.add(user)
         db.session.commit()
         
-        # 生成访问令牌
-        access_token = create_access_token(identity=user.id)
+        # 生成访问令牌 (转换为字符串)
+        access_token = create_access_token(identity=str(user.id))
         
         return jsonify({
             "success": True,

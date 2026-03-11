@@ -225,7 +225,6 @@ def start_risk_monitoring():
         return jsonify({"success": False, "message": str(e)}), 500
 
 @risk_bp.route('/emergency-contacts', methods=['GET'])
-@jwt_required()
 def get_emergency_contacts():
     """获取紧急联系方式"""
     try:
