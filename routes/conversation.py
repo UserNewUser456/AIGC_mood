@@ -233,22 +233,64 @@ def detect_emotion(text):
         return {'emotion': '中性', 'score': 5.0, 'risk_level': 'low'}
 
 def generate_ai_reply(conversation, user_message, emotion_info):
-    """生成AI回复（简化版）"""
+    """生成AI回复（调用阿里云百炼平台LLM）"""
+    import requests
+    
     doctor_profile = DOCTOR_PROFILES[conversation.doctor_type]
     
-    # 根据情绪调整回复策略
+    # 如果是严重风险，直接返回风险提示
     if emotion_info.get('risk_level') == 'critical':
         return f"{doctor_profile['name']}：我注意到您正在经历非常困难的时刻。请立即联系专业心理咨询师或拨打心理援助热线。您不是一个人在战斗，寻求帮助是勇敢的表现。"
     
-    elif emotion_info.get('risk_level') == 'high':
-        return f"{doctor_profile['name']}：听起来您正在经历很大的压力。让我们一起来面对这些挑战。您可以尝试深呼吸放松，或者告诉我更多关于您的感受。"
+    # 构建消息
+    messages = [
+        {"role": "system", "content": doctor_profile['prompt']}
+    ]
     
+    # 获取对话历史
+    recent_messages = Message.query.filter_by(
+        conversation_id=conversation.id
+    ).order_by(Message.created_at).limit(10).all()
+    
+    for msg in recent_messages:
+        role = "user" if msg.role == "user" else "assistant"
+        messages.append({"role": role, "content": msg.content})
+    
+    # 添加当前用户消息
+    messages.append({"role": "user", "content": user_message})
+    
+    # 调用阿里云百炼平台API
+    try:
+        response = requests.post(
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+            headers={
+                "Authorization": "Bearer sk-cd1941be1ff64ce58eddb6e7bb69de71",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "qwen-plus",
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 500
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            print(f"LLM API调用失败: {response.status_code}")
+    except Exception as e:
+        print(f"LLM API异常: {e}")
+    
+    # 如果API调用失败，使用简化版回复作为后备
+    if emotion_info.get('risk_level') == 'high':
+        return f"{doctor_profile['name']}：听起来您正在经历很大的压力。让我们一起来面对这些挑战。您可以尝试深呼吸放松，或者告诉我更多关于您的感受。"
     elif emotion_info.get('emotion') == '正面':
         return f"{doctor_profile['name']}：很高兴听到您有积极的情绪！继续保持这种状态很重要。是什么让您感到开心呢？"
-    
     elif emotion_info.get('emotion') == '负面':
         return f"{doctor_profile['name']}：我理解您现在可能感到有些困扰。每个人都会有情绪波动的时候，让我们一起来探索这些感受。"
-    
     else:
         return f"{doctor_profile['name']}：感谢您与我分享。为了更好地理解您的情况，能告诉我更多关于您最近的生活和感受吗？"
 

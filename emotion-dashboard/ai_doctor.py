@@ -28,8 +28,57 @@
 import os
 import json
 import re
+import requests
 from datetime import datetime
 from functools import wraps
+
+# ================================================================================
+# 阿里云百炼平台配置
+# ================================================================================
+DASHSCOPE_API_KEY = "sk-cd1941be1ff64ce58eddb6e7bb69de71"
+DASHSCOPE_API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+DEFAULT_MODEL = "qwen-plus"  # 可选: qwen-max, qwen-plus, qwen-turbo
+
+def call_llm_api(messages, model=DEFAULT_MODEL):
+    """
+    调用阿里云百炼平台LLM API
+    
+    参数:
+        messages: 消息列表，格式为 [{"role": "user/assistant/system", "content": "..."}]
+        model: 模型名称，默认qwen-plus
+    
+    返回:
+        str: AI回复内容
+    """
+    headers = {
+        "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1000
+    }
+    
+    try:
+        response = requests.post(
+            DASHSCOPE_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            print(f"API调用失败: {response.status_code} - {response.text}")
+            return None
+    except Exception as e:
+        print(f"API调用异常: {e}")
+        return None
 
 # 导入数据库操作（可选，如果数据库未初始化则使用模拟模式）
 try:
@@ -305,9 +354,8 @@ def generate_response(user_message, conversation_history=None, doctor_type='gent
     # 步骤3: 构建对话上下文
     context = build_context(user_message, conversation_history, persona)
     
-    # 步骤4: 生成回复
-    # 注意: 实际项目中这里应该调用LLM API（如OpenAI、文心一言等）
-    response = generate_mock_response(user_message, conversation_history, persona)
+    # 步骤4: 生成回复 - 调用阿里云百炼平台LLM API
+    response = generate_llm_response(user_message, conversation_history, persona)
     
     return {
         'response': response,
@@ -352,6 +400,54 @@ def build_context(user_message, history, persona):
         'history': history_text,
         'current': user_message
     }
+
+
+def generate_llm_response(user_message, history, persona):
+    """
+    调用阿里云百炼平台LLM生成回复
+    
+    参数:
+        user_message: 用户消息
+        history: 对话历史
+        persona: 医生人格配置
+    
+    返回值:
+        str: LLM生成的回复文本
+    """
+    # 构建消息列表
+    messages = []
+    
+    # 添加系统提示
+    messages.append({
+        "role": "system",
+        "content": persona['system_prompt']
+    })
+    
+    # 添加历史消息（最近10轮）
+    if history:
+        recent_history = history[-10:] if len(history) > 10 else history
+        for msg in recent_history:
+            role = "user" if msg.get('role') == 'user' else "assistant"
+            messages.append({
+                "role": role,
+                "content": msg.get('content', '')
+            })
+    
+    # 添加当前用户消息
+    messages.append({
+        "role": "user",
+        "content": user_message
+    })
+    
+    # 调用LLM API
+    response = call_llm_api(messages)
+    
+    # 如果API调用失败，使用模拟回复作为后备
+    if response is None:
+        print("LLM API调用失败，使用模拟回复")
+        return generate_mock_response(user_message, history, persona)
+    
+    return response
 
 
 def generate_mock_response(user_message, history, persona):

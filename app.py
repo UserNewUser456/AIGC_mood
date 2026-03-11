@@ -72,11 +72,32 @@ def index():
             "conversations": "/api/conversations",
             "emotion": "/api/emotion",
             "risk": "/api/risk"
-        }
+        },
+        "frontend": "/index.html"
     }
     # 手动处理 JSON，确保中文不转义（ensure_ascii=False 是关键！）
     json_str = json.dumps(data, ensure_ascii=False, indent=2)
     return Response(json_str, content_type='application/json; charset=utf-8')
+
+# 静态文件服务 - 从 page 目录提供
+import os
+
+@app.route('/index.html')
+def frontend():
+    return app.send_static_file('vue_main.html')
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    # 先尝试从 static 目录
+    static_path = os.path.join(app.root_path, 'static', filename)
+    if os.path.exists(static_path):
+        return app.send_static_file(filename)
+    # 再尝试从 page 目录
+    page_path = os.path.join(app.root_path, 'page', filename)
+    if os.path.exists(page_path):
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, 'page'), filename)
+    return jsonify({"error": "文件未找到"}), 404
 
 # 如果想让所有 jsonify 都自动处理中文，可以添加这个钩子
 @app.after_request
