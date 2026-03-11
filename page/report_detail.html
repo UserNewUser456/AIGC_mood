@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>详细健康报告 - AIGC 情绪愈疗平台</title>
+    <script src="https://unpkg.com/vue@3.4.21/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            color: white;
+            text-align: center;
+            position: relative;
+        }
+
+        .back-btn {
+            position: absolute;
+            left: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header .date {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .report-nav {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-item {
+            flex: 1;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+
+        .nav-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .nav-item h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .nav-item p {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .content-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-title {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .emotion-status {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8eaf6 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .emotion-overview {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .emotion-score {
+            font-size: 72px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .emotion-label {
+            font-size: 24px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .emotion-description {
+            font-size: 16px;
+            color: #666;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .emotion-timeline {
+            margin-top: 40px;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .timeline-date {
+            min-width: 120px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .timeline-content h4 {
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .timeline-content p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .highlights-section {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .highlights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .highlight-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .highlight-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .highlight-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .highlight-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #155724;
+            margin-bottom: 10px;
+        }
+
+        .highlight-desc {
+            color: #155724;
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+
+        .suggestions-section {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border-radius: 15px;
+            padding: 30px;
+        }
+
+        .suggestion-item {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff9800;
+            transition: all 0.3s ease;
+        }
+
+        .suggestion-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .suggestion-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .suggestion-icon {
+            font-size: 32px;
+        }
+
+        .suggestion-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #856404;
+        }
+
+        .suggestion-content {
+            color: #666;
+            line-height: 1.8;
+            padding-left: 47px;
+        }
+
+        .suggestion-steps {
+            margin-top: 15px;
+        }
+
+        .suggestion-steps h5 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .suggestion-steps ol {
+            padding-left: 20px;
+            line-height: 1.8;
+        }
+
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
+        }
+
+        .healing-quotes {
+            background: linear-gradient(135deg, #e8f4fd 0%, #d1ecf1 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .quote {
+            font-size: 20px;
+            font-style: italic;
+            color: #0c5460;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+
+        .quote-author {
+            font-size: 16px;
+            color: #0c5460;
+            opacity: 0.8;
+        }
+
+        .therapeutic-content {
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8eaf6 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+
+        .therapeutic-text {
+            font-size: 16px;
+            line-height: 2;
+            color: #333;
+            text-align: justify;
+        }
+
+        .therapeutic-text p {
+            margin-bottom: 20px;
+        }
+
+        .therapeutic-text .highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .report-nav {
+                flex-direction: column;
+            }
+
+            .timeline-item {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .highlights-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .emotion-score {
+                font-size: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <header class="header">
+                <button class="back-btn" @click="goBack">← 返回报告列表</button>
+                <h1>📊 详细健康报告</h1>
+                <p class="date">{{ reportDate }}</p>
+            </header>
+
+            <nav class="report-nav">
+                <div 
+                    class="nav-item" 
+                    :class="{ active: currentSection === 'emotion' }"
+                    @click="currentSection = 'emotion'"
+                >
+                    <h3>🎭 情绪状态分析</h3>
+                    <p>深入了解您的情绪变化</p>
+                </div>
+                <div 
+                    class="nav-item" 
+                    :class="{ active: currentSection === 'highlights' }"
+                    @click="currentSection = 'highlights'"
+                >
+                    <h3>✨ 本周亮点</h3>
+                    <p>发现您的成长与进步</p>
+                </div>
+                <div 
+                    class="nav-item" 
+                    :class="{ active: currentSection === 'suggestions' }"
+                    @click="currentSection = 'suggestions'"
+                >
+                    <h3>💡 专业建议</h3>
+                    <p>个性化的疗愈建议</p>
+                </div>
+            </nav>
+
+            <!-- 情绪状态分析 -->
+            <div v-if="currentSection === 'emotion'" class="content-section">
+                <div class="emotion-status">
+                    <div class="emotion-overview">
+                        <div class="emotion-score">{{ emotionData.score }}</div>
+                        <div class="emotion-label">{{ emotionData.label }}</div>
+                        <div class="emotion-description">
+                            {{ emotionData.description }}
+                        </div>
+                    </div>
+
+                    <div class="chart-container" ref="emotionChart"></div>
+
+                    <div class="emotion-timeline">
+                        <h4 style="color: #667eea; margin-bottom: 20px; font-size: 20px;">情绪变化时间轴</h4>
+                        <div 
+                            v-for="(event, index) in emotionData.timeline" 
+                            :key="index"
+                            class="timeline-item"
+                        >
+                            <div class="timeline-date">{{ event.date }}</div>
+                            <div class="timeline-content">
+                                <h4>{{ event.title }}</h4>
+                                <p>{{ event.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="therapeutic-content">
+                    <h4 style="color: #667eea; margin-bottom: 20px;">🌱 情绪疗愈指导</h4>
+                    <div class="therapeutic-text">
+                        <p>亲爱的用户，通过本周的情绪记录，我们看到您经历了<span class="highlight">{{ emotionData.primaryEmotion }}</span>的情绪波动。这种情绪体验是您内心世界的真实反映，请允许自己完整地感受它。</p>
+
+                        <p>每一次情绪的起伏都是自我成长的机会。<span class="highlight">{{ emotionData.therapeuticAdvice }}</span></p>
+
+                        <p>请记住：<strong>情绪没有好坏之分，它们都是您生命体验中宝贵的一部分。</strong>当您感到被情绪困扰时，不妨尝试以下方法：</p>
+
+                        <p>• <strong>接纳与观察：</strong>像观察天空的云朵一样观察您的情绪，不评判，不抗拒<br>
+                        • <strong>身体连接：</strong>通过深呼吸、冥想或轻柔运动与身体建立连接<br>
+                        • <strong>表达与释放：</strong>通过写日记、绘画或对话的方式表达内心感受<br>
+                        • <strong>自我关怀：</strong>像对待最好的朋友一样温柔地对待自己</p>
+
+                        <p>您正在学习如何与情绪和谐相处，这是一段值得庆祝的成长旅程。每一步前进都值得被看见和赞赏。💖</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 本周亮点 -->
+            <div v-if="currentSection === 'highlights'" class="content-section">
+                <div class="highlights-section">
+                    <h3 class="section-title">✨ 本周成长亮点</h3>
+                    <p style="text-align: center; color: #666; margin-bottom: 30px;">
+                        每一个进步都值得被庆祝，让我们一起回顾本周的成长时刻
+                    </p>
+
+                    <div class="highlights-grid">
+                        <div 
+                            v-for="(highlight, index) in highlightsData" 
+                            :key="index"
+                            class="highlight-card"
+                        >
+                            <div class="highlight-icon">{{ highlight.icon }}</div>
+                            <div class="highlight-title">{{ highlight.title }}</div>
+                            <div class="highlight-desc">{{ highlight.description }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="therapeutic-content">
+                    <h4 style="color: #667eea; margin-bottom: 20px;">🌟 自我肯定与鼓励</h4>
+                    <div class="therapeutic-text">
+                        <p>亲爱的，当您看到这些亮点时，请花一点时间<span class="highlight">为自己鼓掌</span>。每一个小小的进步都是您努力的见证，是您内在力量的展现。</p>
+
+                        <p>您可能习惯了关注自己的不足，但今天，让我们一起专注于这些美好的闪光点：<strong>您的觉察力正在提升，您的疗愈之旅正在稳步前进。</strong></p>
+
+                        <p>这些亮点告诉我们：<span class="highlight">您拥有改变和成长的能力。</span>也许有时候进展缓慢，但请相信，只要方向正确，每一步都在带您走向更好的自己。</p>
+
+                        <p>建议您每天记录至少一个积极时刻，无论多小。这些积累将成为您内心力量的源泉，在您需要时给予支持和温暖。记住，<strong>成长不是一蹴而就的，而是由无数个微小而坚定的选择组成的。</strong></p>
+
+                        <p>您值得为自己的每一份努力感到骄傲。🌈</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 专业建议 -->
+            <div v-if="currentSection === 'suggestions'" class="content-section">
+                <div class="suggestions-section">
+                    <h3 class="section-title">💡 个性化疗愈建议</h3>
+                    <p style="text-align: center; color: #666; margin-bottom: 30px;">
+                        基于您本周的情绪状态和心理数据，我们为您准备了以下专业建议
+                    </p>
+
+                    <div 
+                        v-for="(suggestion, index) in suggestionsData" 
+                        :key="index"
+                        class="suggestion-item"
+                    >
+                        <div class="suggestion-header">
+                            <div class="suggestion-icon">{{ suggestion.icon }}</div>
+                            <div class="suggestion-title">{{ suggestion.title }}</div>
+                        </div>
+                        <div class="suggestion-content">
+                            <p>{{ suggestion.description }}</p>
+                            
+                            <div class="suggestion-steps" v-if="suggestion.steps">
+                                <h5>具体步骤：</h5>
+                                <ol>
+                                    <li v-for="(step, stepIndex) in suggestion.steps" :key="stepIndex">
+                                        {{ step }}
+                                    </li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="healing-quotes">
+                    <div class="quote">
+                        "疗愈不是消除痛苦，而是学会与痛苦共处，在接纳中找到内心的平静与力量。"
+                    </div>
+                    <div class="quote-author">—— 您的AI心理咨询师</div>
+                </div>
+
+                <div class="therapeutic-content">
+                    <h4 style="color: #667eea; margin-bottom: 20px;">🌸 致用户的一封信</h4>
+                    <div class="therapeutic-text">
+                        <p>亲爱的朋友，</p>
+
+                        <p>当您阅读这些建议时，请记住：<span class="highlight">您不是在独自面对困难。</span>每一个建议背后，都有专业的心理学理论和无数人的疗愈经验作为支撑。</p>
+
+                        <p>改变需要时间，需要耐心，更需要对自己的爱与接纳。请不要苛求自己一次性做到所有建议。<strong>选择一两个最触动您的建议，从最小的行动开始。</strong></p>
+
+                        <p>在实践这些建议的过程中，您可能会遇到挫折，可能会有想要放弃的时刻。这完全正常，也是成长的一部分。<span class="highlight">请对自己温柔一些，像对待最珍贵的朋友一样对待自己。</span></p>
+
+                        <p>记住，疗愈不是一场赛跑，而是一场与自己的和解之旅。每一步都值得被看见，每一次尝试都值得被肯定。</p>
+
+                        <p>愿这些建议成为您疗愈之路上的一盏明灯，照亮前行的方向，温暖您的心灵。无论何时，我们都在这里陪伴您。</p>
+
+                        <p>带着爱与祝福，<br>
+                        <strong>您的AI心理咨询师团队</strong> 💝</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const currentSection = ref('emotion');
+                const reportDate = new Date().toLocaleDateString('zh-CN', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+
+                const emotionData = {
+                    score: 72,
+                    label: '情绪状态良好',
+                    description: '本周您的情绪整体呈现积极向上的趋势，在面对挑战时表现出良好的情绪调节能力。您开始学会接纳自己的情绪，这是一个非常重要的成长标志。',
+                    primaryEmotion: '焦虑',
+                    therapeuticAdvice: '我们注意到焦虑情绪在本周有所波动，但这正是您开始面对内心真实感受的表现。',
+                    timeline: [
+                        {
+                            date: '周一',
+                            title: '情绪平稳期',
+                            description: '一周的开始，您表现出良好的情绪稳定性，为整周奠定了积极的基调。'
+                        },
+                        {
+                            date: '周三',
+                            title: '挑战与成长',
+                            description: '面对工作压力时，您虽然感到焦虑，但成功运用了深呼吸技巧进行调节，展现了良好的应对能力。'
+                        },
+                        {
+                            date: '周五',
+                            title: '情绪释放',
+                            description: '通过与AI咨询师的对话，您释放了一周积累的负面情绪，感受到了内心的轻松。'
+                        },
+                        {
+                            date: '周日',
+                            title: '自我觉察',
+                            description: '在反思中，您发现了自己情绪模式的变化，这种觉察是情绪智慧提升的重要标志。'
+                        }
+                    ]
+                };
+
+                const highlightsData = [
+                    {
+                        icon: '🎯',
+                        title: '情绪觉察力提升',
+                        description: '您开始能够更敏锐地觉察到自己的情绪变化，这是情绪管理的第一步。'
+                    },
+                    {
+                        icon: '💪',
+                        title: '应对策略多样化',
+                        description: '本周您尝试了多种情绪调节方法，展现了积极的解决问题的态度。'
+                    },
+                    {
+                        icon: '🌱',
+                        title: '自我关怀意识增强',
+                        description: '您开始学会对自己温柔，减少了自我批评，增强了自我接纳。'
+                    },
+                    {
+                        icon: '🤝',
+                        title: '寻求支持的勇气',
+                        description: '愿意与AI咨询师分享内心感受，展现了您对心理健康的重视。'
+                    },
+                    {
+                        icon: '📈',
+                        title: '情绪稳定性改善',
+                        description: '与上周相比，您的情绪波动幅度减小了，整体更加平稳。'
+                    },
+                    {
+                        icon: '✨',
+                        title: '积极思维萌芽',
+                        description: '在面对困难时，您开始能够发现其中的积极面和成长机会。'
+                    }
+                ];
+
+                const suggestionsData = [
+                    {
+                        icon: '🧘',
+                        title: '正念冥想练习',
+                        description: '每天花5-10分钟进行正念冥想，帮助您更好地觉察当下，减少焦虑。研究表明，持续的冥想练习可以显著改善情绪调节能力。',
+                        steps: [
+                            '选择一个安静舒适的环境',
+                            '采用舒适的坐姿，轻轻闭上眼睛',
+                            '专注于呼吸，感受空气进出身体的感觉',
+                            '当思绪飘走时，温和地将注意力拉回呼吸',
+                            '结束时，慢慢睁开眼睛，保持这种觉察'
+                        ]
+                    },
+                    {
+                        icon: '📝',
+                        title: '情绪日记记录',
+                        description: '通过书写表达内心感受，有助于情绪的释放和整理。每天记录三件让您感恩的事，培养积极思维。',
+                        steps: [
+                            '每天晚上花5分钟回顾一天的情绪',
+                            '记录情绪的触发事件和您的反应',
+                            '写下三件今天让您感到感激的小事',
+                            '反思从中学到了什么，有哪些成长',
+                            '写下对明天的美好期待'
+                        ]
+                    },
+                    {
+                        icon: '🏃',
+                        title: '规律运动计划',
+                        description: '运动是天然的抗抑郁剂。每周至少进行3次中等强度的运动，每次30分钟，可以显著提升情绪状态。',
+                        steps: [
+                            '选择您喜欢的运动方式（散步、跑步、瑜伽等）',
+                            '制定每周运动计划，固定时间进行',
+                            '从低强度开始，逐渐增加运动量',
+                            '关注运动过程中的身体感受',
+                            '记录运动后的情绪变化，建立正向循环'
+                        ]
+                    },
+                    {
+                        icon: '🤗',
+                        title: '建立支持网络',
+                        description: '与信任的朋友或家人保持联系，分享您的感受。社会支持是心理健康的重要保护因素。',
+                        steps: [
+                            '列出3-5个您信任的人',
+                            '每周至少与其中一人深入交流',
+                            '练习表达自己的需求和感受',
+                            '参加兴趣小组或社交活动',
+                            '考虑寻求专业心理咨询的帮助'
+                        ]
+                    },
+                    {
+                        icon: '🎨',
+                        title: '创意表达疗法',
+                        description: '通过艺术、音乐或写作等方式表达内心感受，有助于情绪的释放和自我探索。',
+                        steps: [
+                            '选择一种您感兴趣的创意形式',
+                            '每周安排固定时间进行创作',
+                            '不评判作品的好坏，享受过程',
+                            '通过创作表达难以言说的感受',
+                            '将作品作为自我对话的媒介'
+                        ]
+                    }
+                ];
+
+                function goBack() {
+                    window.history.back();
+                }
+
+                function initChart() {
+                    nextTick(() => {
+                        const chartDom = document.querySelector('.chart-container');
+                        if (!chartDom) return;
+
+                        const myChart = echarts.init(chartDom);
+
+                        const option = {
+                            title: {
+                                text: '本周情绪变化趋势',
+                                left: 'center',
+                                textStyle: {
+                                    color: '#667eea'
+                                }
+                            },
+                            tooltip: {
+                                trigger: 'axis',
+                                formatter: function(params) {
+                                    return params[0].name + '<br/>情绪指数: ' + params[0].value;
+                                }
+                            },
+                            xAxis: {
+                                type: 'category',
+                                data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+                                axisLine: {
+                                    lineStyle: {
+                                        color: '#667eea'
+                                    }
+                                }
+                            },
+                            yAxis: {
+                                type: 'value',
+                                name: '情绪指数',
+                                min: 0,
+                                max: 100,
+                                axisLine: {
+                                    lineStyle: {
+                                        color: '#667eea'
+                                    }
+                                }
+                            },
+                            series: [{
+                                data: [68, 72, 65, 78, 70, 82, 75],
+                                type: 'line',
+                                smooth: true,
+                                lineStyle: {
+                                    color: '#667eea',
+                                    width: 4
+                                },
+                                itemStyle: {
+                                    color: '#667eea',
+                                    borderWidth: 2,
+                                    borderColor: '#fff'
+                                },
+                                areaStyle: {
+                                    color: {
+                                        type: 'linear',
+                                        x: 0,
+                                        y: 0,
+                                        x2: 0,
+                                        y2: 1,
+                                        colorStops: [{
+                                            offset: 0, color: 'rgba(102, 126, 234, 0.3)'
+                                        }, {
+                                            offset: 1, color: 'rgba(102, 126, 234, 0.05)'
+                                        }]
+                                    }
+                                }
+                            }]
+                        };
+
+                        myChart.setOption(option);
+
+                        window.addEventListener('resize', () => {
+                            myChart.resize();
+                        });
+                    });
+                }
+
+                onMounted(() => {
+                    initChart();
+                });
+
+                return {
+                    currentSection,
+                    reportDate,
+                    emotionData,
+                    highlightsData,
+                    suggestionsData,
+                    goBack
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
