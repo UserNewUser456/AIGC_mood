@@ -29,6 +29,21 @@ DOCTOR_PROFILES = {
     }
 }
 
+@conversation_bp.route('/doctors', methods=['GET'])
+def get_doctors():
+    """获取可用医生列表"""
+    doctors = []
+    for doctor_type, profile in DOCTOR_PROFILES.items():
+        doctors.append({
+            'doctor_type': doctor_type,
+            'name': profile['name'],
+            'description': profile['description']
+        })
+    return jsonify({
+        "success": True,
+        "doctors": doctors
+    })
+
 @conversation_bp.route('', methods=['POST'])
 @jwt_required()
 def create_conversation():
@@ -308,6 +323,147 @@ def create_risk_alert(user_id, conversation_id, content, emotion_info):
     
     db.session.add(risk_alert)
     # 注意：这里不立即提交，由调用方统一提交
+
+from flask import Response, stream_with_context
+
+@conversation_bp.route('/<int:conversation_id>/messages/stream', methods=['POST'])
+@jwt_required()
+def send_message_stream(conversation_id):
+    """发送消息并获取AI流式回复"""
+    try:
+        current_user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        # 验证对话所有权
+        conversation = Conversation.query.filter_by(
+            id=conversation_id, 
+            user_id=current_user_id
+        ).first()
+        
+        if not conversation:
+            return jsonify({"success": False, "message": "对话不存在"}), 404
+        
+        content = data.get('content', '').strip()
+        if not content:
+            return jsonify({"success": False, "message": "消息内容不能为空"}), 400
+        
+        # 保存用户消息
+        user_message = Message(
+            conversation_id=conversation_id,
+            role='user',
+            content=content
+        )
+        db.session.add(user_message)
+        db.session.commit()
+        
+        # 检测情绪
+        emotion_info = detect_emotion(content)
+        
+        # 流式生成回复
+        def generate():
+            doctor_profile = DOCTOR_PROFILES[conversation.doctor_type]
+            full_reply = ""
+            
+            # 如果是严重风险，直接返回提示
+            if emotion_info.get('risk_level') == 'critical':
+                reply = f"{doctor_profile['name']}：我注意到您正在经历非常困难的时刻。请立即联系专业心理咨询师或拨打心理援助热线。"
+                for char in reply:
+                    full_reply += char
+                    yield f"data: {json.dumps({'content': char})}\n\n"
+            else:
+                # 构建消息
+                messages = [
+                    {"role": "system", "content": doctor_profile['prompt']}
+                ]
+                
+                # 获取对话历史
+                recent_messages = Message.query.filter_by(
+                    conversation_id=conversation.id
+                ).order_by(Message.created_at).limit(10).all()
+                
+                for msg in recent_messages:
+                    role = "user" if msg.role == "user" else "assistant"
+                    messages.append({"role": role, "content": msg.content})
+                
+                messages.append({"role": "user", "content": content})
+                
+                # 流式调用LLM API
+                try:
+                    import requests
+                    response = requests.post(
+                        "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                        headers={
+                            "Authorization": "Bearer sk-cd1941be1ff64ce58eddb6e7bb69de71",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "qwen-plus",
+                            "messages": messages,
+                            "temperature": 0.7,
+                            "max_tokens": 500,
+                            "stream": True
+                        },
+                        stream=True,
+                        timeout=30
+                    )
+                    
+                    for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+                        if chunk:
+                            # 解析SSE流
+                            lines = chunk.split('\n')
+                            for line in lines:
+                                if line.startswith('data: '):
+                                    data_str = line[6:]
+                                    if data_str.strip() and data_str != '[DONE]':
+                                        try:
+                                            delta = json.loads(data_str)
+                                            content = delta.get('choices', [{}])[0].get('delta', {}).get('content', '')
+                                            if content:
+                                                full_reply += content
+                                                yield f"data: {json.dumps({'content': content})}\n\n"
+                                        except:
+                                            pass
+                                            
+                except Exception as e:
+                    print(f"LLM流式API异常: {e}")
+                    # 后备回复
+                    fallback = f"{doctor_profile['name']}：感谢您的分享。我在这里倾听您。"
+                    for char in fallback:
+                        full_reply += char
+                        yield f"data: {json.dumps({'content': char})}\n\n"
+            
+            # 保存AI完整回复到数据库
+            ai_message = Message(
+                conversation_id=conversation_id,
+                role='assistant',
+                content=full_reply,
+                emotion_detected=emotion_info.get('emotion'),
+                score_detected=emotion_info.get('score')
+            )
+            db.session.add(ai_message)
+            
+            # 更新对话时间
+            conversation.updated_at = datetime.utcnow()
+            
+            # 检测风险
+            if emotion_info.get('risk_level') in ['high', 'critical']:
+                create_risk_alert(current_user_id, conversation_id, content, emotion_info)
+            
+            db.session.commit()
+            
+            yield f"data: {json.dumps({'done': True, 'emotion': emotion_info})}\n\n"
+        
+        return Response(
+            stream_with_context(generate()),
+            content_type='text/event-stream; charset=utf-8',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no-cache'
+            }
+        )
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @conversation_bp.route('/<int:conversation_id>', methods=['DELETE'])
 @jwt_required()

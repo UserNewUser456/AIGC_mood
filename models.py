@@ -2,6 +2,7 @@
 数据库模型定义
 """
 
+import uuid
 from datetime import datetime
 from extensions import db
 from flask_bcrypt import Bcrypt
@@ -17,6 +18,8 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=True)
     password_hash = db.Column(db.String(128), nullable=True)  # 匿名用户无密码
     user_type = db.Column(db.Enum('anonymous', 'registered'), default='anonymous')
+    is_anonymous = db.Column(db.Boolean, default=True)  # 是否匿名用户
+    avatar_url = db.Column(db.String(512))  # 头像URL
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -42,6 +45,7 @@ class User(db.Model):
             'username': self.username,
             'email': self.email,
             'user_type': self.user_type,
+            'avatar_url': self.avatar_url,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
@@ -72,10 +76,11 @@ class Conversation(db.Model):
     __tablename__ = 'conversations'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    session_id = db.Column(db.String(64), unique=True, nullable=True, index=True, default=lambda: uuid.uuid4().hex)  # 会话唯一ID
     doctor_type = db.Column(db.String(32), default='gentle')  # gentle, rational, humorous
     title = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # 关系
@@ -127,7 +132,9 @@ class RiskAlert(db.Model):
     risk_level = db.Column(db.Enum('low', 'medium', 'high', 'critical'), nullable=False)
     risk_type = db.Column(db.String(64))  # suicide, self_harm, depression, etc.
     content = db.Column(db.Text)
+    alert_sent = db.Column(db.Boolean, default=False)  # 是否已发送警报
     handled = db.Column(db.Boolean, default=False)
+    handled_by = db.Column(db.String(64))  # 处理人
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def to_dict(self):
@@ -139,7 +146,35 @@ class RiskAlert(db.Model):
             'risk_level': self.risk_level,
             'risk_type': self.risk_type,
             'content': self.content,
+            'alert_sent': self.alert_sent,
             'handled': self.handled,
+            'handled_by': self.handled_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class DoctorProfile(db.Model):
+    """医生形象表"""
+    __tablename__ = 'doctor_profiles'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), nullable=False)
+    personality = db.Column(db.Text)  # 个性描述
+    greeting = db.Column(db.Text)  # 问候语
+    avatar_url = db.Column(db.String(512))  # 头像URL
+    doctor_type = db.Column(db.String(32), unique=True, nullable=False)  # gentle, rational, humorous
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        """转换为字典格式"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'personality': self.personality,
+            'greeting': self.greeting,
+            'avatar_url': self.avatar_url,
+            'doctor_type': self.doctor_type,
+            'is_active': self.is_active,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 

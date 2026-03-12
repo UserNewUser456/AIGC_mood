@@ -5,7 +5,7 @@
 import os
 from app import app
 from extensions import db
-from models import User, KnowledgeBase, Resource
+from models import User, KnowledgeBase, Resource, DoctorProfile
 from flask_bcrypt import Bcrypt
 
 bcrypt = Bcrypt()
@@ -119,6 +119,35 @@ def insert_sample_data():
     for resource_data in resources:
         resource = Resource(**resource_data)
         db.session.add(resource)
+    
+    # 医生形象数据
+    doctors = [
+        {
+            'name': '温柔心理师',
+            'personality': '温暖、共情、耐心，善于倾听来访者的内心声音',
+            'greeting': '你好，我是温柔心理师。在这里，你可以放心地倾诉，我会一直陪在你身边。',
+            'avatar_url': '/images/doctor_gentle.png',
+            'doctor_type': 'gentle'
+        },
+        {
+            'name': '理性分析师',
+            'personality': '冷静、客观、逻辑性强，帮助来访者理清思路',
+            'greeting': '你好，我是理性分析师。让我们一起客观地分析你的问题，找到解决方案。',
+            'avatar_url': '/images/doctor_rational.png',
+            'doctor_type': 'rational'
+        },
+        {
+            'name': '幽默治疗师',
+            'personality': '乐观、幽默、轻松，帮助来访者缓解负面情绪',
+            'greeting': '你好，我是幽默治疗师！虽然生活中有不如意，但保持乐观很重要，让我们一起找回笑容吧！',
+            'avatar_url': '/images/doctor_humorous.png',
+            'doctor_type': 'humorous'
+        }
+    ]
+    
+    for doctor_data in doctors:
+        doctor = DoctorProfile(**doctor_data)
+        db.session.add(doctor)
     
     db.session.commit()
 
