@@ -15,17 +15,117 @@ CORS(app, origins=['*'])
 # Token存储 (生产环境建议使用Redis)
 admin_tokens = {}
 
-# 数据库配置 - 请修改为实际配置
+# 数据库配置 - 远程数据库
 DB_CONFIG = {
-    'host': 'localhost',
+    'host': 'localhost',  # 如果数据库在本地用localhost，在远程服务器用127.0.0.1
     'user': 'root',
-    'password': '12345678',
+    'password': 'root1234',
     'database': 'emotion_db',
     'charset': 'utf8mb4'
 }
 
 def get_db():
     return pymysql.connect(**DB_CONFIG)
+
+# ==================== 数据库初始化 ====================
+
+def init_database():
+    """初始化数据库表"""
+    # 先连接不带数据库
+    conn = pymysql.connect(
+        host=DB_CONFIG['host'],
+        user=DB_CONFIG['user'],
+        password=DB_CONFIG['password'],
+        charset='utf8mb4'
+    )
+    cursor = conn.cursor()
+    
+    cursor.execute("CREATE DATABASE IF NOT EXISTS emotion_db")
+    cursor.execute("USE emotion_db")
+    
+    # 创建用户表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(64) UNIQUE,
+            email VARCHAR(120),
+            password_hash VARCHAR(128),
+            user_type ENUM('anonymous', 'registered') DEFAULT 'anonymous',
+            role VARCHAR(20) DEFAULT 'user',
+            is_anonymous BOOLEAN DEFAULT TRUE,
+            avatar_url VARCHAR(512),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # 创建商品表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            price FLOAT NOT NULL,
+            original_price FLOAT,
+            image_url VARCHAR(512),
+            category VARCHAR(64),
+            stock INT DEFAULT 100,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # 创建订单表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            order_no VARCHAR(64) UNIQUE,
+            total_amount FLOAT,
+            status ENUM('pending', 'paid', 'shipped', 'completed', 'cancelled') DEFAULT 'pending',
+            payment_method VARCHAR(32),
+            address TEXT,
+            remark TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # 创建风险预警表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS risk_alerts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT,
+            conversation_id INT,
+            risk_level ENUM('low', 'medium', 'high', 'critical'),
+            risk_type VARCHAR(64),
+            content TEXT,
+            alert_sent BOOLEAN DEFAULT FALSE,
+            handled BOOLEAN DEFAULT FALSE,
+            handled_by VARCHAR(64),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # 创建知识库表
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS knowledge_base (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            category VARCHAR(64),
+            title VARCHAR(255) NOT NULL,
+            content TEXT NOT NULL,
+            tags VARCHAR(255),
+            source VARCHAR(128),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+    print("数据库表初始化完成!")
 
 # ==================== 认证接口 ====================
 
@@ -289,6 +389,12 @@ def health_check():
     return jsonify({'status': 'ok', 'time': datetime.now().isoformat()})
 
 if __name__ == '__main__':
+    # 初始化数据库
+    try:
+        init_database()
+    except Exception as e:
+        print(f"数据库初始化: {e}")
+    
     # 启动命令: python admin_server.py
     # 端口: 5000
     print("="*50)

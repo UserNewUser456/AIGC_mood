@@ -12,11 +12,11 @@ import re
 app = Flask(__name__)
 CORS(app, origins=['*'])
 
-# 数据库配置
+# 数据库配置 - 远程数据库
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
-    'password': '12345678',
+    'password': 'root1234',
     'database': 'emotion_db',
     'charset': 'utf8mb4'
 }

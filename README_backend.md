@@ -21,14 +21,14 @@ pip install -r backend_requirements.txt
 DB_CONFIG = {
     'host': 'localhost',      # 数据库地址
     'user': 'root',           # 用户名
-    'password': '12345678',   # 密码
+    'password': 'root1234',   # 密码
     'database': 'emotion_db', # 数据库名
     'charset': 'utf8mb4'
 }
 ```
 
 ### 3. 初始化数据库
-确保数据库 `emotion_db` 已创建，所有表结构已创建（参考数据库结构.md）。
+启动服务时会自动创建所需的表（users, products, orders, risk_alerts, knowledge_base）。
 
 ### 4. 启动服务
 
