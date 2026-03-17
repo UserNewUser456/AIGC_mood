@@ -399,6 +399,6 @@ if __name__ == '__main__':
     # 端口: 5000
     print("="*50)
     print("管理员后台服务")
-    print("端口: 5000")
+    print("端口: 5005")
     print("="*50)
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5005, debug=False)
