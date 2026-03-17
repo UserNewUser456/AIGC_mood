@@ -1,0 +1,7 @@
+# 后端依赖
+flask
+flask-cors
+pymysql
+pyjwt
+cryptography
+jieba
