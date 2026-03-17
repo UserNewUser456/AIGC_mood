@@ -359,4 +359,4 @@ if __name__ == '__main__':
     print("  POST /api/auth/register - 用户注册")
     print("=" * 60)
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5005, debug=False)
