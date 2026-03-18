@@ -343,32 +343,47 @@ def call_llm(messages, stream=False, temperature=0.7):
 def generate_ai_response(question, knowledge_items, emotion_info):
     """使用AI大模型生成专业、温暖的回答"""
     
-    # 构建系统提示
-    system_prompt = """你是一位专业的心理咨询师，拥有丰富的心理学知识和咨询经验。
-
-你的特点：
-1. 专业：基于心理学理论和知识图谱内容给出建议
-2. 温暖：用关怀、理解的语言与用户交流
-3. 安全：对于严重心理问题，建议寻求专业帮助
-4. 实用：提供具体可行的方法和技巧
-
-请根据提供的知识图谱内容，结合你的专业知识，给出专业、温暖、有帮助的回答。
-回答结构：
-1. 先表达理解和共情（2-3句话）
-2. 简要解释这种情绪/问题（基于知识图谱）
-3. 给出具体可行的方法（2-3个）
-4. 温暖的鼓励（1-2句话）
-
-注意：回答要口语化、温暖，不要像教科书一样。"""
-
-    # 构建知识上下文
-    knowledge_context = ""
-    if knowledge_items:
-        knowledge_context = "\n\n相关知识图谱信息：\n"
-        for item in knowledge_items[:4]:
-            knowledge_context += f"- [{item['type']}] {item['name']}: {item['description'][:100]}...\n"
+    has_knowledge = knowledge_items and len(knowledge_items) > 0
+    primary_emotion = emotion_info.get('primary_emotion', '中性')
     
-    # 情绪安抚语
+    # 根据是否有知识图谱内容选择不同的系统提示
+    if has_knowledge:
+        # 有专业知识，使用专业模式
+        system_prompt = """你是一位温暖专业的心理咨询师。
+
+任务：根据知识图谱内容，用自己的话回答用户问题。
+重要：
+1. 必须将知识图谱内容用自己的话复述，不能直接复制
+2. 回答要自然、流畅，像和人聊天
+3. 先共情，再给建议，最后鼓励
+4. 控制在200字左右"""
+        
+        knowledge_context = "\n\n知识图谱信息：\n"
+        for item in knowledge_items[:3]:
+            knowledge_context += f"- {item.get('name', '')}: {item.get('description', '')[:80]}\n"
+    else:
+        # 没有专业知识，使用闲聊模式
+        system_prompt = """你是一位温暖友好的心理咨询师助手。
+
+任务：和用户进行自然、温暖的日常对话。
+重要：
+1. 像朋友聊天一样，自然回应
+2. 不要重复同样的开场白
+3. 适当关心用户的感受
+4. 如果用户表达负面情绪，给予理解和支持
+5. 控制在150字左右"""
+        
+        knowledge_context = ""
+    
+    # 共情语随机变化（避免重复）
+    comfort_options = [
+        "谢谢你的分享，",
+        "我听到你了，",
+        "感谢你愿意告诉我这些，",
+        "很高兴你能和我聊聊，",
+    ]
+    import random
+    comfort_prefix = random.choice(comfort_options) if primary_emotion != '中性' else ""
     comfort = emotion_info.get('comfort_message', '')
     
     # 危机情况特殊处理
@@ -383,10 +398,15 @@ def generate_ai_response(question, knowledge_items, emotion_info):
             return ai_response + "\n\n🆘 **紧急求助资源**：\n- 全国24小时心理危机干预热线：400-161-9995\n- 北京心理危机研究与干预中心：010-82951332\n- 生命热线：400-821-1215"
         return "我注意到你可能正在经历非常艰难的时刻。请立即联系专业心理咨询师或拨打心理危机干预热线：400-161-9995。你的生命很珍贵，有人愿意帮助你。"
     
-    # 正常情况
+    # 正常情况 - 根据是否有知识调整提示
+    if has_knowledge:
+        user_content = f"用户问题：{question}\n{knowledge_context}\n\n请结合以上知识，用自己的话回答。先共情，再给建议。控制在200字左右。"
+    else:
+        user_content = f"用户说：{question}\n\n请进行温暖友好的对话回应。控制在150字左右。"
+    
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"用户情绪状态：{emotion_info['primary_emotion']}\n用户问题：{question}\n{knowledge_context}\n\n请给出专业、温暖的回答。先说一句共情的话，然后基于知识图谱提供专业建议。控制在300字左右。"}
+        {"role": "user", "content": user_content}
     ]
     
     ai_response = call_llm(messages)
