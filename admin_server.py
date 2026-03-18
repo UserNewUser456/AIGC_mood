@@ -163,7 +163,9 @@ def init_database():
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
-    """管理员登录 - 根据is_admin字段判断，支持bcrypt密码验证"""
+    """管理员登录 - 根据is_admin字段判断，使用werkzeug验证密码哈希"""
+    from werkzeug.security import check_password_hash
+    
     data = request.get_json() or {}
     username = data.get('username', '')
     password = data.get('password', '')
@@ -185,20 +187,9 @@ def admin_login():
         conn.close()
         return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
     
-    # 验证密码（支持bcrypt哈希和明文两种方式）
+    # 使用werkzeug验证密码哈希
     stored_password = admin.get('password_hash', '')
-    password_valid = False
-    
-    if stored_password:
-        # 尝试bcrypt验证
-        try:
-            import bcrypt
-            password_valid = bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8'))
-        except:
-            # 如果bcrypt验证失败，尝试明文比较
-            password_valid = (password == stored_password)
-    
-    if not password_valid:
+    if not check_password_hash(stored_password, password):
         conn.close()
         return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
     
@@ -206,6 +197,7 @@ def admin_login():
     token = secrets.token_urlsafe(32)
     admin_tokens[token] = {
         'username': admin.get('username', username),
+        'user_id': admin.get('id'),
         'expire': datetime.now() + timedelta(days=7)
     }
     conn.close()
