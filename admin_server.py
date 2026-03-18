@@ -163,7 +163,7 @@ def init_database():
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
-    """管理员登录 - 根据is_admin字段判断"""
+    """管理员登录 - 根据is_admin字段判断，支持bcrypt密码验证"""
     data = request.get_json() or {}
     username = data.get('username', '')
     password = data.get('password', '')
@@ -174,29 +174,49 @@ def admin_login():
     conn = get_db()
     cursor = conn.cursor(pymysql.cursors.DictCursor)
     
-    # 根据username或email登录，检查is_admin=1
+    # 先查找用户（不验证密码）
     cursor.execute(
-        "SELECT * FROM users WHERE (username = %s OR email = %s) AND password_hash = %s AND is_admin = 1",
-        (username, username, password)
+        "SELECT * FROM users WHERE (username = %s OR email = %s) AND is_admin = 1",
+        (username, username)
     )
     admin = cursor.fetchone()
-    conn.close()
     
-    if admin:
-        token = secrets.token_urlsafe(32)
-        admin_tokens[token] = {
+    if not admin:
+        conn.close()
+        return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
+    
+    # 验证密码（支持bcrypt哈希和明文两种方式）
+    stored_password = admin.get('password_hash', '')
+    password_valid = False
+    
+    if stored_password:
+        # 尝试bcrypt验证
+        try:
+            import bcrypt
+            password_valid = bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8'))
+        except:
+            # 如果bcrypt验证失败，尝试明文比较
+            password_valid = (password == stored_password)
+    
+    if not password_valid:
+        conn.close()
+        return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
+    
+    # 登录成功，生成token
+    token = secrets.token_urlsafe(32)
+    admin_tokens[token] = {
+        'username': admin.get('username', username),
+        'expire': datetime.now() + timedelta(days=7)
+    }
+    conn.close()
+    return jsonify({
+        'success': True,
+        'data': {
+            'token': token, 
             'username': admin.get('username', username),
-            'expire': datetime.now() + timedelta(days=7)
+            'email': admin.get('email', '')
         }
-        return jsonify({
-            'success': True,
-            'data': {
-                'token': token, 
-                'username': admin.get('username', username),
-                'email': admin.get('email', '')
-            }
-        })
-    return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
+    })
 
 def verify_token():
     """验证Token"""
