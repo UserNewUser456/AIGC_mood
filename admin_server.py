@@ -163,8 +163,8 @@ def init_database():
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
-    """管理员登录 - 根据is_admin字段判断，使用werkzeug验证密码哈希"""
-    from werkzeug.security import check_password_hash
+    """管理员登录 - 根据is_admin字段判断，使用bcrypt验证密码哈希"""
+    import bcrypt
     
     data = request.get_json() or {}
     username = data.get('username', '')
@@ -187,9 +187,11 @@ def admin_login():
         conn.close()
         return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
     
-    # 使用werkzeug验证密码哈希
+    # 使用bcrypt验证密码哈希
     stored_password = admin.get('password_hash', '')
-    if not check_password_hash(stored_password, password):
+    password_valid = bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8'))
+    
+    if not password_valid:
         conn.close()
         return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
     
