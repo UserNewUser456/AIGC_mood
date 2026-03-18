@@ -3,7 +3,7 @@
 供后端部署使用
 包含：管理员管理、商品管理、风险预警、知识库管理
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import pymysql
 from datetime import datetime, timedelta
@@ -12,6 +12,7 @@ import requests
 import json
 import os
 import re
+import uuid
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'
@@ -86,6 +87,7 @@ def init_database():
             image_url VARCHAR(512),
             category VARCHAR(64),
             stock INT DEFAULT 100,
+            healing_tags VARCHAR(255) COMMENT '愈疗标签，逗号分隔',
             is_active BOOLEAN DEFAULT TRUE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -283,34 +285,73 @@ def get_products():
     
     return jsonify({'success': True, 'data': products})
 
+# 商品图片上传目录
+PRODUCT_IMAGES_DIR = os.path.join(os.path.dirname(__file__), 'product_images')
+os.makedirs(PRODUCT_IMAGES_DIR, exist_ok=True)
+
 @app.route('/api/admin/products', methods=['POST'])
 def create_product():
-    """发布商品"""
+    """发布商品 - 支持表单数据和JSON"""
     if not verify_token():
         return jsonify({'success': False, 'error': '未登录'}), 401
     
-    data = request.get_json() or {}
+    # 支持multipart/form-data或application/json
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        name = request.form.get('name')
+        description = request.form.get('description', '')
+        price = request.form.get('price')
+        original_price = request.form.get('original_price')
+        category = request.form.get('category', 'product')
+        stock = request.form.get('stock', 100)
+        healing_tags = request.form.get('healing_tags', '')
+        
+        # 处理图片上传
+        image_url = None
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename:
+                ext = os.path.splitext(file.filename)[1]
+                filename = f"{uuid.uuid4()}{ext}"
+                filepath = os.path.join(PRODUCT_IMAGES_DIR, filename)
+                file.save(filepath)
+                image_url = f"/product_images/{filename}"
+    else:
+        data = request.get_json() or {}
+        name = data.get('name')
+        description = data.get('description', '')
+        price = data.get('price')
+        original_price = data.get('original_price')
+        category = data.get('category', 'product')
+        stock = data.get('stock', 100)
+        healing_tags = data.get('healing_tags', '')
+        image_url = data.get('image_url')
     
-    if not data.get('name') or not data.get('price'):
+    if not name or not price:
         return jsonify({'success': False, 'error': '名称和价格不能为空'}), 400
     
     try:
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO products (name, description, price, original_price, image_url, category, stock) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-            (data['name'], data.get('description', ''), float(data['price']), 
-             float(data['original_price']) if data.get('original_price') else None, 
-             data.get('image_url'), 
-             data.get('category', 'product'), 
-             int(data.get('stock', 100)))
+            """INSERT INTO products (name, description, price, original_price, image_url, category, stock, healing_tags) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (name, description, float(price), 
+             float(original_price) if original_price else None, 
+             image_url, 
+             category, 
+             int(stock),
+             healing_tags)
         )
         conn.commit()
         conn.close()
-        return jsonify({'success': True, 'message': '商品发布成功'})
+        return jsonify({'success': True, 'message': '商品发布成功', 'data': {'image_url': image_url}})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# 提供商品图片访问
+@app.route('/product_images/<filename>')
+def serve_product_image(filename):
+    return send_from_directory(PRODUCT_IMAGES_DIR, filename)
 
 @app.route('/api/admin/products/<int:product_id>', methods=['DELETE'])
 def delete_product(product_id):
