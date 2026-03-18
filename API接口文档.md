@@ -3,7 +3,8 @@
 ## 服务器地址
 ```
 http://49.235.105.137:5005  (管理员后台)
-http://49.235.105.137:5001  (RAG知识图谱)
+http://49.235.105.137:5001  (RAG知识图谱 - 智能对话)
+http://49.235.105.137:5002  (文档知识API - 文档上传处理)
 ```
 
 ---
@@ -359,16 +360,96 @@ http://49.235.105.137:5001  (RAG知识图谱)
 
 ---
 
-# 四、知识图谱结构
+# 四、文档知识API (端口5002)
 
-## 4.1 节点类型
+## 4.1 文档上传与处理
+
+### 27. 上传文档
+- **URL**: `POST /api/document/upload`
+- **功能**：上传PDF、Word、TXT等文档，自动提取知识存入Neo4j
+- **Content-Type**: `multipart/form-data`
+- **请求参数**：
+  - `file`: 文件（必填）
+  - `title`: 文档标题（可选，默认使用文件名）
+
+**响应示例**：
+```json
+{
+    "success": true,
+    "message": "文档上传成功，已提取知识存入知识图谱",
+    "data": {
+        "doc_id": "abc123",
+        "title": "心理健康指南",
+        "entities_extracted": 15,
+        "relationships_extracted": 8
+    }
+}
+```
+
+### 28. 文本导入知识
+- **URL**: `POST /api/document/process-text`
+- **功能**：直接提交文本内容，自动提取实体和关系
+
+**请求体**：
+```json
+{
+    "title": "《心理调适指南》",
+    "text": "焦虑症是一种常见的情绪障碍，表现为过度担心和恐惧。可以通过认知行为疗法缓解..."
+}
+```
+
+**响应**：
+```json
+{
+    "success": true,
+    "message": "知识提取成功",
+    "data": {
+        "doc_id": "def456",
+        "entities": [
+            {"type": "Emotion", "name": "焦虑症", "description": "常见的情绪障碍"},
+            {"type": "Treatment", "name": "认知行为疗法", "description": "..."}
+        ],
+        "relationships": [
+            {"from": "焦虑症", "to": "认知行为疗法", "type": "RELIEVED_BY"}
+        ]
+    }
+}
+```
+
+---
+
+### 29. 文档搜索
+- **URL**: `GET /api/document/search?keyword=焦虑`
+- **功能**：搜索已导入的文档知识
+
+### 30. 获取文档列表
+- **URL**: `GET /api/document/list`
+- **功能**：获取所有已上传的文档
+
+### 31. 获取文档详情
+- **URL**: `GET /api/document/<doc_id>`
+- **功能**：获取指定文档的详细信息和提取的知识
+
+### 32. 删除文档
+- **URL**: `DELETE /api/document/<doc_id>`
+- **功能**：删除指定文档及其相关知识
+
+### 33. 健康检查
+- **URL**: `GET /health`
+- **功能**：检查服务状态
+
+---
+
+# 五、知识图谱结构
+
+## 5.1 节点类型
 - **Emotion（情绪）**: 焦虑、抑郁、愤怒、恐惧、孤独、失眠
 - **Symptom（症状）**: 心慌、肌肉紧张、注意力难集中、睡眠障碍等
 - **Treatment（治疗方法）**: 认知行为疗法、正念冥想、运动疗法等
 - **Technique（技巧）**: 4-7-8呼吸法、渐进式肌肉放松、思维记录表等
 - **Cause（原因）**: 工作压力、人际关系、生活事件等
 
-## 4.2 关系类型
+## 5.2 关系类型
 - `LEADS_TO`: 情绪导致症状（如：焦虑 → 心慌）
 - `CAUSED_BY`: 情绪由什么原因引起
 - `RELIEVED_BY`: 情绪可通过什么方法缓解（如：焦虑 → 认知行为疗法）
@@ -377,9 +458,9 @@ http://49.235.105.137:5001  (RAG知识图谱)
 
 ---
 
-# 五、前端调用示例
+# 六、前端调用示例
 
-## 5.1 管理员导入心理学书籍
+## 6.1 管理员导入心理学书籍
 
 ```javascript
 // 1. 登录获取token
@@ -415,7 +496,7 @@ const graphData = await graphRes.json();
 // 使用 graphData.data.nodes 和 graphData.data.links 进行可视化
 ```
 
-## 5.2 用户智能对话
+## 6.2 用户智能对话
 
 ```javascript
 // 用户提问
@@ -451,6 +532,9 @@ python3 admin_server.py
 
 # RAG知识图谱服务（端口5001）
 python3 my_rag_knowledge_api.py
+
+# 文档知识API（端口5002）
+python3 document_knowledge_api.py
 ```
 
 ## 6.3 安装依赖
