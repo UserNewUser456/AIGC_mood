@@ -12,7 +12,12 @@ from datetime import datetime
 import re
 
 # Neo4j图数据库
-from neo4j import GraphDatabase
+try:
+    from neo4j import GraphDatabase
+    neo4j_available = True
+except ImportError:
+    neo4j_available = False
+    print("[WARNING] Neo4j驱动未安装")
 
 app = Flask(__name__)
 CORS(app, origins=['*'])
@@ -54,11 +59,25 @@ class Neo4jConnection:
             return list(session.run(query, parameters))
 
 # 初始化Neo4j连接
-neo4j_conn = Neo4jConnection(
-    NEO4J_CONFIG['uri'],
-    NEO4J_CONFIG['username'],
-    NEO4J_CONFIG['password']
-)
+neo4j_conn = None
+neo4j_connected = False
+if neo4j_available:
+    try:
+        neo4j_conn = Neo4jConnection(
+            NEO4J_CONFIG['uri'],
+            NEO4J_CONFIG['username'],
+            NEO4J_CONFIG['password']
+        )
+        # 测试连接
+        if neo4j_conn._driver:
+            neo4j_conn.run_read("RETURN 1")
+            neo4j_connected = True
+            print("[OK] Neo4j连接成功")
+    except Exception as e:
+        print(f"[WARNING] Neo4j连接失败: {e}")
+        print("[INFO] 服务将以有限功能模式运行")
+        neo4j_conn = None
+        neo4j_connected = False
 
 # ==================== 情绪检测与安抚 ====================
 
