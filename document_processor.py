@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-文档处理工具模块
+文档处理工具模块（轻量版）
 支持读取 PDF、Word、TXT 等文档格式
+针对服务器内存优化：不使用本地向量模型，使用关键词匹配
 """
 import os
 import io
@@ -134,21 +135,7 @@ class DocumentProcessor:
     
     def process_document(self, file_content: bytes, file_type: str, 
                         file_name: str = "document") -> Dict[str, Any]:
-        """
-        处理文档的完整流程
-        
-        Returns:
-            {
-                "file_name": str,
-                "file_type": str,
-                "total_chars": int,
-                "total_chunks": int,
-                "chunks": [
-                    {"index": 0, "content": "...", "char_count": 100},
-                    ...
-                ]
-            }
-        """
+        """处理文档的完整流程"""
         # 1. 加载文档
         text = self.loader.load_document(file_content, file_type)
         total_chars = len(text)
@@ -184,107 +171,126 @@ class DocumentProcessor:
 
 
 class EmbeddingProcessor:
-    """向量化处理器 - 需要配置嵌入模型"""
+    """
+    轻量级向量化处理器
+    使用关键词匹配+TF-IDF，无需加载本地向量模型，节省内存
+    """
     
-    def __init__(self, embedding_model: str = "nomic-embed-text"):
-        self.embedding_model = embedding_model
+    def __init__(self):
         self.embeddings = None
-        self._init_embeddings()
+        self.vocab = {}  # 词汇表
+        self.use_embedding = False
+        print("[OK] 使用轻量级关键词匹配嵌入")
     
-    def _init_embeddings(self):
-        """初始化嵌入模型"""
-        try:
-            from langchain_ollama import OllamaEmbeddings
-            self.embeddings = OllamaEmbeddings(model=self.embedding_model)
-            print(f"[OK] 嵌入模型已加载: {self.embedding_model}")
-        except ImportError:
-            try:
-                from langchain_openai import OpenAIEmbeddings
-                # 使用OpenAI嵌入（需要API Key）
-                self.embeddings = OpenAIEmbeddings()
-                print("[OK] OpenAI嵌入模型已加载")
-            except ImportError:
-                print("[WARNING] 未找到嵌入模型，将使用关键词匹配作为后备")
+    def _build_vocab(self, texts: List[str]):
+        """构建词汇表"""
+        import re
+        self.vocab = {}
+        for text in texts:
+            # 提取中文词
+            words = re.findall(r'[\u4e00-\u9fff]{2,}', text)
+            for word in words:
+                self.vocab[word] = self.vocab.get(word, 0) + 1
+        
+        # 取top 1000词汇
+        self.vocab = dict(sorted(self.vocab.items(), key=lambda x: x[1], reverse=True)[:1000])
+        self.use_embedding = len(self.vocab) > 0
+    
+    def _text_to_vector(self, text: str) -> List[float]:
+        """将文本转为向量（基于词频）"""
+        if not self.vocab:
+            return [0.0] * len(self.vocab) if self.vocab else [0.0]
+        
+        import re
+        words = re.findall(r'[\u4e00-\u9fff]{2,}', text)
+        vector = [0.0] * len(self.vocab)
+        
+        for i, word in enumerate(self.vocab.keys()):
+            vector[i] = words.count(word)
+        
+        return vector
     
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """将文本转为向量"""
-        if self.embeddings:
-            return self.embeddings.embed_documents(texts)
-        else:
-            # 返回空向量作为后备
-            return [[0.0] * 384 for _ in texts]
+        if not self.use_embedding:
+            self._build_vocab(texts)
+        
+        return [self._text_to_vector(text) for text in texts]
     
     def embed_query(self, query: str) -> List[float]:
         """将查询转为向量"""
-        if self.embeddings:
-            return self.embeddings.embed_query(query)
-        else:
-            return [0.0] * 384
+        return self._text_to_vector(query)
 
 
-class VectorStore:
-    """简单的向量存储（基于内存）"""
+class KeywordVectorStore:
+    """
+    轻量级向量存储
+    使用关键词匹配+倒排索引，不存储大量向量，节省内存
+    """
     
     def __init__(self):
         self.documents = []  # 存储文档块
-        self.embeddings = []  # 存储对应的向量
-        self.metadata = []  # 存储元数据
+        self.keywords = {}   # 倒排索引: keyword -> [doc_indices]
+        self.metadata = []   # 存储元数据
     
-    def add_documents(self, chunks: List[str], metadata: Dict[str, Any], 
-                     embedding_processor: EmbeddingProcessor):
-        """添加文档到向量存储"""
-        # 生成向量
-        vectors = embedding_processor.embed_texts(chunks)
+    def add_documents(self, chunks: List[str], metadata: Dict[str, Any]):
+        """添加文档到存储（不生成向量）"""
+        import re
         
-        # 存储
-        for i, (chunk, vector) in enumerate(zip(chunks, vectors)):
+        for i, chunk in enumerate(chunks):
+            # 提取关键词
+            words = re.findall(r'[\u4e00-\u9fff]{2,}', chunk)
+            
+            # 去重
+            unique_words = list(set(words))
+            
             self.documents.append(chunk)
-            self.embeddings.append(vector)
-            self.metadata.append({
-                **metadata,
-                "chunk_index": i
-            })
+            self.metadata.append({**metadata, "chunk_index": i})
+            
+            # 更新倒排索引
+            for word in unique_words:
+                if word not in self.keywords:
+                    self.keywords[word] = []
+                if i not in self.keywords[word]:
+                    self.keywords[word].append(i)
     
-    def similarity_search(self, query_vector: List[float], top_k: int = 3) -> List[Dict]:
-        """相似度搜索（简单的余弦相似度）"""
-        if not self.embeddings:
+    def similarity_search(self, query: str, top_k: int = 3) -> List[Dict]:
+        """基于关键词的相似度搜索"""
+        import re
+        
+        # 提取查询词
+        query_words = re.findall(r'[\u4e00-\u9fff]{2,}', query)
+        
+        if not query_words or not self.keywords:
             return []
         
-        # 计算相似度
-        similarities = []
-        for i, doc_vector in enumerate(self.embeddings):
-            sim = self._cosine_similarity(query_vector, doc_vector)
-            similarities.append((i, sim))
+        # 计算每个文档的得分
+        scores = {}
+        for word in query_words:
+            if word in self.keywords:
+                for doc_idx in self.keywords[word]:
+                    scores[doc_idx] = scores.get(doc_idx, 0) + 1
         
-        # 排序并返回top_k
-        similarities.sort(key=lambda x: x[1], reverse=True)
+        # 排序
+        sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
         
+        # 返回top_k
         results = []
-        for idx, sim in similarities[:top_k]:
+        for idx, score in sorted_scores[:top_k]:
             results.append({
                 "content": self.documents[idx],
-                "score": sim,
+                "score": score / len(query_words),  # 归一化分数
                 "metadata": self.metadata[idx]
             })
         
         return results
     
-    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
-        """计算余弦相似度"""
-        dot_product = sum(a * b for a, b in zip(vec1, vec2))
-        magnitude1 = sum(a * a for a in vec1) ** 0.5
-        magnitude2 = sum(b * b for b in vec2) ** 0.5
-        
-        if magnitude1 == 0 or magnitude2 == 0:
-            return 0.0
-        
-        return dot_product / (magnitude1 * magnitude2)
-    
     def save_to_file(self, filepath: str):
         """保存到文件"""
         data = {
             "documents": self.documents,
-            "metadata": self.metadata
+            "metadata": self.metadata,
+            "keywords": self.keywords
         }
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -295,6 +301,11 @@ class VectorStore:
             data = json.load(f)
             self.documents = data.get("documents", [])
             self.metadata = data.get("metadata", [])
+            self.keywords = data.get("keywords", {})
+
+
+# 兼容旧代码
+VectorStore = KeywordVectorStore
 
 
 # 测试代码

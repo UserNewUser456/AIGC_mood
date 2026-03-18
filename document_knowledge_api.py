@@ -171,10 +171,10 @@ def extract_entities_to_kg(text: str, doc_name: str, category: str = "文档知�
         )
         
         chunks = [c['content'] for c in result['chunks']]
+        # 使用轻量级关键词存储，无需向量
         vector_store.add_documents(
             chunks,
-            {"doc_id": doc_id, "doc_name": doc_name},
-            embedding_processor
+            {"doc_id": doc_id, "doc_name": doc_name}
         )
         
         return {
@@ -218,20 +218,19 @@ def search_knowledge(query: str, top_k: int = 5) -> list:
         except Exception as e:
             print(f"[ERROR] Neo4j搜索失败: {e}")
     
-    # 2. 向量相似度搜索
+    # 2. 关键词搜索（轻量级，无需向量）
     try:
-        query_vector = embedding_processor.embed_query(query)
-        vector_results = vector_store.similarity_search(query_vector, top_k=top_k)
+        vector_results = vector_store.similarity_search(query, top_k=top_k)
         
         for r in vector_results:
             results.append({
-                "source": "vector_store",
+                "source": "keyword_search",
                 "content": r['content'],
                 "score": r['score'],
                 "doc_name": r['metadata'].get('doc_name', 'unknown')
             })
     except Exception as e:
-        print(f"[ERROR] 向量搜索失败: {e}")
+        print(f"[ERROR] 关键词搜索失败: {e}")
     
     return results
 
