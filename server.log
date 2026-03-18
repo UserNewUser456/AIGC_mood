@@ -1,0 +1,89 @@
+==================================================
+RAG知识库服务启动中...
+访问 http://localhost:5000 查看状态
+==================================================
+ * Serving Flask app 'test_rag_flask'
+ * Debug mode: on
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.110.228:5000
+Press CTRL+C to quit
+ * Restarting with watchdog (windowsapi)
+==================================================
+RAG知识库服务启动中...
+访问 http://localhost:5000 查看状态
+==================================================
+ * Debugger is active!
+ * Debugger PIN: 112-134-062
+ * Detected change in 'd:\\shixi\\AIGC_mood\\AIGC_mood\\test_api_rag.py', reloading
+ * Restarting with watchdog (windowsapi)
+==================================================
+RAG知识库服务启动中...
+访问 http://localhost:5000 查看状态
+==================================================
+ * Debugger is active!
+ * Debugger PIN: 112-134-062
+127.0.0.1 - - [16/Mar/2026 15:25:37] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [16/Mar/2026 15:25:39] "POST /api/rag-knowledge/rag HTTP/1.1" 200 -
+ * Detected change in 'C:\\Users\\HUAWEI\\anaconda3\\Lib\\site-packages\\flask\\app.py', reloading
+127.0.0.1 - - [16/Mar/2026 15:25:42] "GET /api/rag-knowledge?keyword=冥想 HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask\app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask\app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\anaconda3\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "d:\shixi/AIGC_mood/AIGC_mood\my_rag_knowledge_api.py", line 303, in search_knowledge
+    from models import KnowledgeBase
+  File "d:\shixi/AIGC_mood/AIGC_mood\models.py", line 8, in <module>
+    from flask_bcrypt import Bcrypt
+ModuleNotFoundError: No module named 'flask_bcrypt'
+ * Restarting with watchdog (windowsapi)
+==================================================
+RAG知识库服务启动中...
+访问 http://localhost:5000 查看状态
+==================================================
+ * Debugger is active!
+ * Debugger PIN: 112-134-062
+ * Detected change in 'd:\\shixi\\AIGC_mood\\AIGC_mood\\test_rag_api.py', reloading
+ * Restarting with watchdog (windowsapi)
+==================================================
+RAG知识库服务启动中...
+访问 http://localhost:5000 查看状态
+==================================================
+ * Debugger is active!
+ * Debugger PIN: 112-134-062
+127.0.0.1 - - [16/Mar/2026 15:26:08] "POST /api/rag-knowledge/rag HTTP/1.1" 200 -
+127.0.0.1 - - [16/Mar/2026 15:26:10] "POST /api/rag-knowledge/rag HTTP/1.1" 200 -
+127.0.0.1 - - [16/Mar/2026 15:26:12] "POST /api/rag-knowledge/rag HTTP/1.1" 200 -
+ * Detected change in 'd:\\shixi\\AIGC_mood\\AIGC_mood\\test_rag_full.py', reloading
+ * Restarting with watchdog (windowsapi)
+==================================================
+RAG知识库服务启动中...
+访问 http://localhost:5000 查看状态
+==================================================
+ * Debugger is active!
+ * Debugger PIN: 112-134-062
+ * Detected change in 'd:\\shixi\\AIGC_mood\\AIGC_mood\\test_rag.py', reloading
+ * Restarting with watchdog (windowsapi)
+C:\Users\HUAWEI\anaconda3\python.exe: can't open file 'd:\\shixi\\AIGC_mood\\AIGC_mood\\test_rag_flask.py': [Errno 2] No such file or directory

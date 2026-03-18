@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>情绪愈疗 AI 对话</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <script src="https://unpkg.com/element-plus"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        #app {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .title {
+            text-align: center;
+            color: white;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .login-card h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .doctor-list {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .doctor-item {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .doctor-item:hover {
+            border-color: #667eea;
+        }
+        
+        .doctor-item.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .doctor-item .name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .doctor-item .desc {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+        }
+        
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-header h3 {
+            color: #333;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .message {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        
+        .message.user .message-avatar {
+            background: #667eea;
+            color: white;
+            margin-right: 0;
+            margin-left: 10px;
+        }
+        
+        .message.assistant .message-avatar {
+            background: #67c23a;
+            color: white;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.5;
+        }
+        
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 10px;
+        }
+        
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #999;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        
+        .chat-input-area {
+            padding: 15px 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+        
+        .voice-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: none;
+            background: #f5f7fa;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.3s;
+        }
+        
+        .voice-btn:hover {
+            background: #e8f4ff;
+        }
+        
+        .voice-btn.recording {
+            background: #f56c6c;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .send-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: none;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+        
+        .send-btn:hover {
+            background: #5a6fd6;
+        }
+        
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .back-btn {
+            padding: 8px 15px;
+            border: none;
+            background: #f5f7fa;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .back-btn:hover {
+            background: #e8f4ff;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1 class="title">🌸 情绪愈疗 AI 对话</h1>
+        
+        <!-- 登录/选择医生界面 -->
+        <div v-if="!conversationId" class="login-card">
+            <h2>选择你的心理医生</h2>
+            <div class="doctor-list">
+                <div 
+                    class="doctor-item" 
+                    :class="{ active: selectedDoctor === 'gentle' }"
+                    @click="selectedDoctor = 'gentle'"
+                >
+                    <div class="name">👩‍⚕️ 温柔医生</div>
+                    <div class="desc">温暖关怀</div>
+                </div>
+                <div 
+                    class="doctor-item" 
+                    :class="{ active: selectedDoctor === 'rational' }"
+                    @click="selectedDoctor = 'rational'"
+                >
+                    <div class="name">👨‍⚕️ 理性医生</div>
+                    <div class="desc">逻辑分析</div>
+                </div>
+                <div 
+                    class="doctor-item" 
+                    :class="{ active: selectedDoctor === 'humorous' }"
+                    @click="selectedDoctor = 'humorous'"
+                >
+                    <div class="name">😄 幽默医生</div>
+                    <div class="desc">轻松解压</div>
+                </div>
+            </div>
+            
+            <el-input 
+                v-model="username" 
+                placeholder="请输入你的名字" 
+                style="margin-bottom: 15px;"
+            ></el-input>
+            
+            <el-input 
+                v-model="password" 
+                type="password" 
+                placeholder="请输入密码" 
+                @keyup.enter="startChat"
+                style="margin-bottom: 20px;"
+            ></el-input>
+            
+            <el-button 
+                type="primary" 
+                style="width: 100%;"
+                @click="startChat"
+                :loading="loading"
+            >
+                开始对话
+            </el-button>
+        </div>
+        
+        <!-- 对话界面 -->
+        <div v-else class="chat-container">
+            <div class="chat-header">
+                <div>
+                    <h3>{{ doctorNames[selectedDoctor] }}</h3>
+                    <small style="color: #666;">{{ username }}</small>
+                </div>
+                <button class="back-btn" @click="endChat">结束对话</button>
+            </div>
+            
+            <div class="chat-messages" ref="messagesContainer">
+                <div 
+                    v-for="(msg, index) in messages" 
+                    :key="index"
+                    class="message"
+                    :class="msg.role"
+                >
+                    <div v-if="msg.role === 'assistant'" class="message-avatar">👩‍⚕️</div>
+                    <div class="message-content">{{ msg.content }}</div>
+                    <div v-if="msg.role === 'user'" class="message-avatar">👤</div>
+                </div>
+                
+                <!-- 打字中提示 -->
+                <div v-if="isTyping" class="message assistant">
+                    <div class="message-avatar">👩‍⚕️</div>
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <input 
+                    class="chat-input"
+                    v-model="inputText"
+                    placeholder="输入你想说的话..."
+                    @keyup.enter="sendMessage"
+                    :disabled="isTyping"
+                ></input>
+                
+                <!-- 语音输入按钮 -->
+                <button 
+                    class="voice-btn"
+                    :class="{ recording: isRecording }"
+                    @click="toggleVoice"
+                    :title="isRecording ? '点击停止录音' : '点击开始语音输入'"
+                >
+                    {{ isRecording ? '⏹️' : '🎤' }}
+                </button>
+                
+                <button 
+                    class="send-btn"
+                    @click="sendMessage"
+                    :disabled="!inputText.trim() || isTyping"
+                >
+                    ➤
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, nextTick, onMounted, onUnmounted } = Vue;
+        
+        createApp({
+            setup() {
+                const API_BASE = 'http://49.235.105.137:5005';
+                
+                // 医生配置
+                const doctorNames = {
+                    'gentle': '👩‍⚕️ 温柔医生',
+                    'rational': '👨‍⚕️ 理性医生',
+                    'humorous': '😄 幽默医生'
+                };
+                
+                // 状态
+                const username = ref('');
+                const password = ref('');
+                const selectedDoctor = ref('gentle');
+                const conversationId = ref(null);
+                const messages = ref([]);
+                const inputText = ref('');
+                const isTyping = ref(false);
+                const loading = ref(false);
+                const messagesContainer = ref(null);
+                
+                // 语音识别
+                const isRecording = ref(false);
+                let recognition = null;
+                
+                // 检查浏览器支持
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const browserSupport = !!SpeechRecognition;
+                
+                if (browserSupport) {
+                    recognition = new SpeechRecognition();
+                    recognition.continuous = false;
+                    recognition.interimResults = true;
+                    recognition.lang = 'zh-CN';
+                    
+                    recognition.onresult = (event) => {
+                        let finalTranscript = '';
+                        let interimTranscript = '';
+                        
+                        for (let i = event.resultIndex; i < event.results.length; i++) {
+                            const transcript = event.results[i][0].transcript;
+                            if (event.results[i].isFinal) {
+                                finalTranscript += transcript;
+                            } else {
+                                interimTranscript += transcript;
+                            }
+                        }
+                        
+                        if (finalTranscript) {
+                            inputText.value = finalTranscript;
+                        }
+                    };
+                    
+                    recognition.onerror = (event) => {
+                        console.error('语音识别错误:', event.error);
+                        isRecording.value = false;
+                        if (event.error === 'not-allowed') {
+                            ElMessage.error('请允许麦克风权限');
+                        }
+                    };
+                    
+                    recognition.onend = () => {
+                        isRecording.value = false;
+                    };
+                }
+                
+                // 切换语音输入
+                const toggleVoice = () => {
+                    if (!browserSupport) {
+                        ElMessage.warning('您的浏览器不支持语音识别功能');
+                        return;
+                    }
+                    
+                    if (isRecording.value) {
+                        recognition.stop();
+                        isRecording.value = false;
+                    } else {
+                        try {
+                            recognition.start();
+                            isRecording.value = true;
+                        } catch (e) {
+                            console.error('启动语音识别失败:', e);
+                        }
+                    }
+                };
+                
+                // 开始对话
+                const startChat = async () => {
+                    if (!username.value.trim()) {
+                        ElMessage.warning('请输入你的名字');
+                        return;
+                    }
+                    if (!password.value.trim()) {
+                        ElMessage.warning('请输入密码');
+                        return;
+                    }
+                    
+                    loading.value = true;
+                    
+                    try {
+                        // 登录获取token
+                        const loginRes = await fetch(`${API_BASE}/api/auth/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: username.value,
+                                password: password.value
+                            })
+                        });
+                        
+                        const loginData = await loginRes.json();
+                        
+                        if (!loginData.success) {
+                            ElMessage.error('登录失败: ' + loginData.message);
+                            loading.value = false;
+                            return;
+                        }
+                        
+                        const token = loginData.token;
+                        
+                        // 创建对话
+                        const convRes = await fetch(`${API_BASE}/api/conversations`, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                doctor_type: selectedDoctor.value
+                            })
+                        });
+                        
+                        const convData = await convRes.json();
+                        
+                        if (!convData.success) {
+                            ElMessage.error('创建对话失败: ' + convData.message);
+                            loading.value = false;
+                            return;
+                        }
+                        
+                        conversationId.value = convData.conversation.id;
+                        messages.value = [convData.welcome_message];
+                        
+                        saveToken(token);
+                        scrollToBottom();
+                        
+                    } catch (e) {
+                        console.error(e);
+                        ElMessage.error('连接服务器失败，请检查网络');
+                    }
+                    
+                    loading.value = false;
+                };
+                
+                // 发送消息
+                const sendMessage = async () => {
+                    if (!inputText.value.trim() || isTyping.value) return;
+                    
+                    const userMessage = inputText.value.trim();
+                    inputText.value = '';
+                    
+                    // 添加用户消息
+                    messages.value.push({
+                        role: 'user',
+                        content: userMessage
+                    });
+                    
+                    isTyping.value = true;
+                    scrollToBottom();
+                    
+                    try {
+                        const token = getToken();
+                        
+                        // 发送消息
+                        const res = await fetch(
+                            `${API_BASE}/api/conversations/${conversationId.value}/messages/stream`,
+                            {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({ content: userMessage })
+                            }
+                        );
+                        
+                        // 添加AI消息占位
+                        messages.value.push({
+                            role: 'assistant',
+                            content: ''
+                        });
+                        
+                        const reader = res.body.getReader();
+                        const decoder = new TextDecoder();
+                        
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            
+                            const chunk = decoder.decode(value);
+                            const lines = chunk.split('\n');
+                            
+                            for (const line of lines) {
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        if (data.content) {
+                                            const lastMsg = messages.value[messages.value.length - 1];
+                                            lastMsg.content += data.content;
+                                            scrollToBottom();
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                        
+                    } catch (e) {
+                        console.error(e);
+                        const lastMsg = messages.value[messages.value.length - 1];
+                        lastMsg.content = '抱歉，发送消息失败了，请重试。';
+                    }
+                    
+                    isTyping.value = false;
+                };
+                
+                // 结束对话
+                const endChat = () => {
+                    conversationId.value = null;
+                    messages.value = [];
+                    localStorage.removeItem('token');
+                };
+                
+                // 滚动到底部
+                const scrollToBottom = () => {
+                    nextTick(() => {
+                        if (messagesContainer.value) {
+                            messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+                        }
+                    });
+                };
+                
+                // Token管理
+                const saveToken = (token) => {
+                    localStorage.setItem('token', token);
+                };
+                
+                const getToken = () => {
+                    return localStorage.getItem('token');
+                };
+                
+                return {
+                    username,
+                    password,
+                    selectedDoctor,
+                    conversationId,
+                    messages,
+                    inputText,
+                    isTyping,
+                    loading,
+                    messagesContainer,
+                    isRecording,
+                    toggleVoice,
+                    browserSupport,
+                    doctorNames,
+                    startChat,
+                    sendMessage,
+                    endChat
+                };
+            }
+        }).use(ElementPlus).mount('#app');
+    </script>
+</body>
+</html>
