@@ -61,12 +61,19 @@ def init_database():
             password_hash VARCHAR(128),
             user_type ENUM('anonymous', 'registered') DEFAULT 'anonymous',
             role VARCHAR(20) DEFAULT 'user',
+            is_admin TINYINT DEFAULT 0 COMMENT '1=管理员,0=普通用户',
             is_anonymous BOOLEAN DEFAULT TRUE,
             avatar_url VARCHAR(512),
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
     """)
+    
+    # 添加is_admin列（如果不存在）
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_admin TINYINT DEFAULT 0")
+    except:
+        pass
     
     # 创建商品表
     cursor.execute("""
@@ -154,7 +161,7 @@ def init_database():
 
 @app.route('/api/admin/login', methods=['POST'])
 def admin_login():
-    """管理员登录"""
+    """管理员登录 - 根据is_admin字段判断"""
     data = request.get_json() or {}
     username = data.get('username', '')
     password = data.get('password', '')
@@ -164,21 +171,30 @@ def admin_login():
     
     conn = get_db()
     cursor = conn.cursor(pymysql.cursors.DictCursor)
-    cursor.execute("SELECT * FROM users WHERE username = %s AND password_hash = %s AND role = 'admin'", (username, password))
+    
+    # 根据username或email登录，检查is_admin=1
+    cursor.execute(
+        "SELECT * FROM users WHERE (username = %s OR email = %s) AND password_hash = %s AND is_admin = 1",
+        (username, username, password)
+    )
     admin = cursor.fetchone()
     conn.close()
     
     if admin:
         token = secrets.token_urlsafe(32)
         admin_tokens[token] = {
-            'username': username,
+            'username': admin.get('username', username),
             'expire': datetime.now() + timedelta(days=7)
         }
         return jsonify({
             'success': True,
-            'data': {'token': token, 'username': username}
+            'data': {
+                'token': token, 
+                'username': admin.get('username', username),
+                'email': admin.get('email', '')
+            }
         })
-    return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
+    return jsonify({'success': False, 'error': '用户名或密码错误，或不是管理员'}), 401
 
 def verify_token():
     """验证Token"""
