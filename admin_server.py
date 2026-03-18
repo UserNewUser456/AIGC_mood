@@ -93,6 +93,16 @@ def init_database():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
     """)
+
+    # 添加缺失的列（如果表是旧版本）
+    try:
+        cursor.execute("ALTER TABLE products ADD COLUMN healing_tags VARCHAR(255) COMMENT '愈疗标签，逗号分隔'")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE products ADD COLUMN is_active BOOLEAN DEFAULT TRUE")
+    except:
+        pass
     
     # 创建订单表
     cursor.execute("""
