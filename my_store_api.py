@@ -30,7 +30,7 @@ DB_CONFIG = {
 }
 
 # 后台订单API地址
-ADMIN_API_URL = 'http://localhost:5005'
+ADMIN_API_URL = 'http://49.235.105.137:5005'
 
 def get_db():
     return pymysql.connect(**DB_CONFIG)
@@ -309,6 +309,6 @@ def health():
 if __name__ == '__main__':
     print("=" * 50)
     print("用户商城服务")
-    print("端口: 5003")
+    print("端口: 5000")
     print("=" * 50)
-    app.run(host='0.0.0.0', port=5003, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
