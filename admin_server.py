@@ -34,6 +34,9 @@ DB_CONFIG = {
     'charset': 'utf8mb4'
 }
 
+# 服务器地址 (用于图片完整URL)
+SERVER_URL = 'http://49.235.105.137:5005'
+
 def get_db():
     return pymysql.connect(**DB_CONFIG)
 
@@ -307,6 +310,11 @@ def get_products():
     products = cursor.fetchall()
     conn.close()
     
+    # 处理图片URL，添加完整服务器地址
+    for p in products:
+        if p.get('image_url') and not p['image_url'].startswith('http'):
+            p['image_url'] = f"{SERVER_URL}{p['image_url']}"
+    
     return jsonify({'success': True, 'data': products})
 
 # 商品图片上传目录
@@ -338,7 +346,7 @@ def create_product():
                 filename = f"{uuid.uuid4()}{ext}"
                 filepath = os.path.join(PRODUCT_IMAGES_DIR, filename)
                 file.save(filepath)
-                image_url = f"/product_images/{filename}"
+                image_url = f"{SERVER_URL}/product_images/{filename}"
     else:
         data = request.get_json() or {}
         name = data.get('name')
@@ -405,6 +413,10 @@ def get_product(product_id):
     
     if not product:
         return jsonify({'success': False, 'error': '商品不存在'}), 404
+    
+    # 处理图片URL
+    if product.get('image_url') and not product['image_url'].startswith('http'):
+        product['image_url'] = f"{SERVER_URL}{product['image_url']}"
     
     return jsonify({'success': True, 'data': product})
 
