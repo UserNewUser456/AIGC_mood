@@ -1,319 +1,330 @@
 """
-商城模块 + 推荐引擎模块
-后端工程师B - 任务3、4
+用户商城API服务
+端口: 5003
 
 功能：
-1. 商城API：商品CRUD/分类筛选/关键词搜索/商品详情
-2. 推荐引擎：基于用户画像和实时情绪的商品推荐
+1. 商品列表（只显示在售商品）
+2. 分类筛选/关键词搜索/商品详情
+3. 购物车功能（添加/删除）
+4. 支付功能（同步到后台订单）
 """
 
-from flask import Blueprint, request, jsonify
-from extensions import db
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import pymysql
+import json
+import os
+import uuid
 from datetime import datetime
 
-store_bp = Blueprint('store_b', __name__)
+app = Flask(__name__)
+CORS(app)
 
-# ==================== 商城API ====================
+# 数据库配置
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'root1234',
+    'database': 'emotion_db',
+    'charset': 'utf8mb4'
+}
 
-@store_bp.route('/products', methods=['GET'])
+# 后台订单API地址
+ADMIN_API_URL = 'http://localhost:5005'
+
+def get_db():
+    return pymysql.connect(**DB_CONFIG)
+
+# ==================== 商品API ====================
+
+@app.route('/api/store/products', methods=['GET'])
 def get_products():
-    """
-    GET /api/b-store/products - 获取商品列表
-    参数: category(分类), keyword(关键词), emotion(适用情绪), page, per_page
-    """
-    try:
-        category = request.args.get('category', '')
-        keyword = request.args.get('keyword', '')
-        emotion = request.args.get('emotion', '')
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 20))
-        
-        from models import Resource
-        
-        query = Resource.query.filter(Resource.type.in_(['product', 'meditation', 'article', 'music']))
-        
-        if category:
-            query = query.filter(Resource.type == category)
-        
-        if keyword:
-            query = query.filter(
-                db.or_(
-                    Resource.title.ilike(f'%{keyword}%'),
-                    Resource.description.ilike(f'%{keyword}%'),
-                    Resource.tags.ilike(f'%{keyword}%')
-                )
-            )
-        
-        if emotion:
-            query = query.filter(Resource.applicable_emotions.ilike(f'%{emotion}%'))
-        
-        pagination = query.order_by(Resource.created_at.desc()) \
-            .paginate(page=page, per_page=per_page, error_out=False)
-        
-        return jsonify({
-            "success": True,
-            "data": {
-                "products": [p.to_dict() for p in pagination.items],
-                "pagination": {
-                    "page": page,
-                    "per_page": per_page,
-                    "total": pagination.total,
-                    "pages": pagination.pages
-                }
+    """获取商品列表（只显示在售商品）"""
+    category = request.args.get('category', '')
+    keyword = request.args.get('keyword', '')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 20))
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    # 只查询在售商品 is_active = 1
+    where = "WHERE is_active = 1"
+    params = []
+    
+    if category:
+        where += " AND category = %s"
+        params.append(category)
+    
+    if keyword:
+        where += " AND (name LIKE %s OR description LIKE %s)"
+        params.extend([f'%{keyword}%', f'%{keyword}%'])
+    
+    # 获取总数
+    cursor.execute(f"SELECT COUNT(*) as total FROM products {where}", params)
+    total = cursor.fetchone()['total']
+    
+    # 分页查询
+    offset = (page - 1) * per_page
+    cursor.execute(f"""
+        SELECT id, name, description, price, original_price, image_url, 
+               category, stock, healing_tags
+        FROM products 
+        {where}
+        ORDER BY created_at DESC 
+        LIMIT %s OFFSET %s
+    """, params + [per_page, offset])
+    
+    products = cursor.fetchall()
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'list': products,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'pages': (total + per_page - 1) // per_page
             }
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-@store_bp.route('/categories', methods=['GET'])
-def get_categories():
-    """
-    GET /api/b-store/categories - 获取分类列表
-    """
-    try:
-        from models import Resource
-        
-        categories = db.session.query(Resource.type).distinct().all()
-        
-        category_map = {
-            'product': '疗愈商品',
-            'meditation': '冥想课程',
-            'article': '心理文章',
-            'music': '疗愈音乐',
-            'consultation': '咨询服务'
         }
-        
-        return jsonify({
-            "success": True,
-            "data": [
-                {"type": c[0], "name": category_map.get(c[0], c[0])}
-                for c in categories if c[0]
-            ]
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+    })
 
-
-@store_bp.route('/products/<int:product_id>', methods=['GET'])
+@app.route('/api/store/products/<int:product_id>', methods=['GET'])
 def get_product_detail(product_id):
-    """
-    GET /api/b-store/products/<id> - 获取商品详情
-    """
+    """获取商品详情"""
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("SELECT * FROM products WHERE id = %s AND is_active = 1", (product_id,))
+    product = cursor.fetchone()
+    conn.close()
+    
+    if not product:
+        return jsonify({'success': False, 'error': '商品不存在或已下架'}), 404
+    
+    return jsonify({'success': True, 'data': product})
+
+@app.route('/api/store/categories', methods=['GET'])
+def get_categories():
+    """获取商品分类"""
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("SELECT DISTINCT category FROM products WHERE is_active = 1 AND category IS NOT NULL")
+    categories = cursor.fetchall()
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'data': [{'category': c['category'], 'name': c['category']} for c in categories]
+    })
+
+# ==================== 购物车API ====================
+
+# 内存存储购物车（生产环境建议用Redis）
+carts = {}  # {user_id: [{product_id, quantity, product_info}]}
+
+@app.route('/api/store/cart', methods=['GET'])
+def get_cart():
+    """获取用户购物车"""
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify({'success': False, 'error': '请登录'}), 401
+    
+    cart_items = carts.get(user_id, [])
+    
+    # 计算总金额
+    total = sum(item['quantity'] * item['price'] for item in cart_items)
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'items': cart_items,
+            'total': total,
+            'count': len(cart_items)
+        }
+    })
+
+@app.route('/api/store/cart', methods=['POST'])
+def add_to_cart():
+    """添加商品到购物车"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    product_id = data.get('product_id')
+    quantity = data.get('quantity', 1)
+    
+    if not user_id:
+        return jsonify({'success': False, 'error': '请登录'}), 401
+    if not product_id:
+        return jsonify({'success': False, 'error': '商品ID不能为空'}), 400
+    
+    # 获取商品信息
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("SELECT * FROM products WHERE id = %s AND is_active = 1", (product_id,))
+    product = cursor.fetchone()
+    conn.close()
+    
+    if not product:
+        return jsonify({'success': False, 'error': '商品不存在或已下架'}), 404
+    
+    # 添加到购物车
+    if user_id not in carts:
+        carts[user_id] = []
+    
+    # 检查是否已存在
+    for item in carts[user_id]:
+        if item['product_id'] == product_id:
+            item['quantity'] += quantity
+            return jsonify({'success': True, 'message': '购物车数量已更新'})
+    
+    carts[user_id].append({
+        'product_id': product_id,
+        'quantity': quantity,
+        'name': product['name'],
+        'price': product['price'],
+        'image_url': product.get('image_url', '')
+    })
+    
+    return jsonify({'success': True, 'message': '已添加到购物车'})
+
+@app.route('/api/store/cart/<int:product_id>', methods=['DELETE'])
+def remove_from_cart(product_id):
+    """从购物车删除商品"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'success': False, 'error': '请登录'}), 401
+    
+    if user_id in carts:
+        carts[user_id] = [item for item in carts[user_id] if item['product_id'] != product_id]
+    
+    return jsonify({'success': True, 'message': '已从购物车移除'})
+
+@app.route('/api/store/cart', methods=['PUT'])
+def update_cart():
+    """更新购物车商品数量"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    product_id = data.get('product_id')
+    quantity = data.get('quantity', 1)
+    
+    if not user_id:
+        return jsonify({'success': False, 'error': '请登录'}), 401
+    
+    if user_id in carts:
+        for item in carts[user_id]:
+            if item['product_id'] == product_id:
+                if quantity <= 0:
+                    carts[user_id].remove(item)
+                else:
+                    item['quantity'] = quantity
+                break
+    
+    return jsonify({'success': True, 'message': '购物车已更新'})
+
+@app.route('/api/store/cart/clear', methods=['DELETE'])
+def clear_cart():
+    """清空购物车"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    
+    if user_id and user_id in carts:
+        carts[user_id] = []
+    
+    return jsonify({'success': True, 'message': '购物车已清空'})
+
+# ==================== 支付API ====================
+
+@app.route('/api/store/order/create', methods=['POST'])
+def create_order():
+    """创建订单（模拟支付）"""
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    payment_method = data.get('payment_method', 'alipay')  # alipay, wechat, balance
+    
+    if not user_id:
+        return jsonify({'success': False, 'error': '请登录'}), 401
+    
+    cart_items = carts.get(user_id, [])
+    if not cart_items:
+        return jsonify({'success': False, 'error': '购物车为空'}), 400
+    
+    # 计算订单金额
+    total_amount = sum(item['quantity'] * item['price'] for item in cart_items)
+    order_no = f"ORD{datetime.now().strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:6]}"
+    
     try:
-        from models import Resource
+        conn = get_db()
+        cursor = conn.cursor()
         
-        product = Resource.query.get(product_id)
+        # 1. 创建订单
+        cursor.execute("""
+            INSERT INTO orders (user_id, order_no, total_amount, status, created_at)
+            VALUES (%s, %s, %s, 'paid', NOW())
+        """, (user_id, order_no, total_amount))
         
-        if not product:
-            return jsonify({"success": False, "message": "商品不存在"}), 404
+        order_id = cursor.lastrowid
+        
+        # 2. 记录订单商品（如果有order_items表）
+        # 这里简化处理，直接更新库存
+        for item in cart_items:
+            cursor.execute("""
+                UPDATE products SET stock = stock - %s 
+                WHERE id = %s AND stock >= %s
+            """, (item['quantity'], item['product_id'], item['quantity']))
+        
+        conn.commit()
+        conn.close()
+        
+        # 清空购物车
+        carts[user_id] = []
         
         return jsonify({
-            "success": True,
-            "data": product.to_dict()
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-@store_bp.route('/products', methods=['POST'])
-def create_product():
-    """
-    POST /api/b-store/products - 创建商品
-    请求: {"type": "product", "title": "商品名称", "description": "描述", "url": "链接", "applicable_emotions": "焦虑,压力"}
-    """
-    try:
-        data = request.get_json() or {}
-        
-        required = ['type', 'title']
-        for field in required:
-            if not data.get(field):
-                return jsonify({"success": False, "message": f"缺少必要字段: {field}"}), 400
-        
-        from models import Resource
-        
-        product = Resource(
-            type=data['type'],
-            title=data['title'],
-            description=data.get('description', ''),
-            url=data.get('url', ''),
-            applicable_emotions=data.get('applicable_emotions', '')
-        )
-        
-        db.session.add(product)
-        db.session.commit()
-        
-        return jsonify({
-            "success": True,
-            "message": "商品创建成功",
-            "data": product.to_dict()
-        }), 201
-        
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-@store_bp.route('/products/<int:product_id>', methods=['PUT'])
-def update_product(product_id):
-    """
-    PUT /api/b-store/products/<id> - 更新商品
-    """
-    try:
-        data = request.get_json() or {}
-        
-        from models import Resource
-        
-        product = Resource.query.get(product_id)
-        
-        if not product:
-            return jsonify({"success": False, "message": "商品不存在"}), 404
-        
-        if 'title' in data:
-            product.title = data['title']
-        if 'description' in data:
-            product.description = data['description']
-        if 'url' in data:
-            product.url = data['url']
-        if 'applicable_emotions' in data:
-            product.applicable_emotions = data['applicable_emotions']
-        
-        db.session.commit()
-        
-        return jsonify({
-            "success": True,
-            "message": "商品更新成功",
-            "data": product.to_dict()
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-@store_bp.route('/products/<int:product_id>', methods=['DELETE'])
-def delete_product(product_id):
-    """
-    DELETE /api/b-store/products/<id> - 删除商品
-    """
-    try:
-        from models import Resource
-        
-        product = Resource.query.get(product_id)
-        
-        if not product:
-            return jsonify({"success": False, "message": "商品不存在"}), 404
-        
-        db.session.delete(product)
-        db.session.commit()
-        
-        return jsonify({
-            "success": True,
-            "message": "商品删除成功"
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-
-# ==================== 推荐引擎API ====================
-
-@store_bp.route('/recommend/products', methods=['GET'])
-def recommend_products():
-    """
-    GET /api/b-recommend/products - 基于情绪的商品推荐
-    参数: user_id, emotion(当前情绪), limit(默认10)
-    """
-    try:
-        user_id = request.args.get('user_id', 1, type=int)
-        emotion = request.args.get('emotion', '平静')
-        limit = int(request.args.get('limit', 10))
-        
-        from models import Resource, EmotionRecord
-        
-        # 获取用户最近的情绪记录
-        recent_emotions = EmotionRecord.query.filter_by(user_id=user_id) \
-            .order_by(EmotionRecord.created_at.desc()).limit(10).all()
-        
-        # 分析用户情绪画像
-        emotion_counts = {}
-        for r in recent_emotions:
-            emotion_counts[r.emotion] = emotion_counts.get(r.emotion, 0) + 1
-        
-        # 构建推荐查询：优先推荐适合当前情绪和历史情绪的商品
-        query = Resource.query.filter(
-            Resource.type.in_(['product', 'meditation', 'music'])
-        )
-        
-        # 查找匹配当前情绪或历史积极情绪的资源
-        emotions_to_match = [emotion] + list(emotion_counts.keys())
-        
-        recommendations = []
-        for e in emotions_to_match[:5]:
-            matched = Resource.query.filter(
-                Resource.applicable_emotions.ilike(f'%{e}%')
-            ).limit(limit).all()
-            recommendations.extend(matched)
-        
-        # 去重并限制数量
-        seen = set()
-        unique_recommendations = []
-        for r in recommendations:
-            if r.id not in seen:
-                seen.add(r.id)
-                unique_recommendations.append(r.to_dict())
-        
-        return jsonify({
-            "success": True,
-            "data": {
-                "user_id": user_id,
-                "current_emotion": emotion,
-                "user_emotion_profile": emotion_counts,
-                "recommendations": unique_recommendations[:limit],
-                "recommend_type": "emotion_based"
+            'success': True,
+            'data': {
+                'order_id': order_id,
+                'order_no': order_no,
+                'total_amount': total_amount,
+                'status': 'paid',
+                'message': '支付成功'
             }
         })
         
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        return jsonify({'success': False, 'error': f'订单创建失败: {str(e)}'}), 500
 
+@app.route('/api/store/orders', methods=['GET'])
+def get_user_orders():
+    """获取用户订单列表"""
+    user_id = request.args.get('user_id', type=int)
+    
+    if not user_id:
+        return jsonify({'success': False, 'error': '请登录'}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("""
+        SELECT * FROM orders 
+        WHERE user_id = %s 
+        ORDER BY created_at DESC 
+        LIMIT 50
+    """, (user_id,))
+    orders = cursor.fetchall()
+    conn.close()
+    
+    return jsonify({'success': True, 'data': orders})
 
-@store_bp.route('/recommend/knowledge', methods=['GET'])
-def recommend_knowledge():
-    """
-    GET /api/b-recommend/knowledge - 基于情绪的知识推荐
-    参数: user_id, emotion
-    """
-    try:
-        user_id = request.args.get('user_id', 1, type=int)
-        emotion = request.args.get('emotion', '平静')
-        limit = int(request.args.get('limit', 5))
-        
-        from models import KnowledgeBase
-        
-        # 匹配当前情绪的知识
-        results = KnowledgeBase.query.filter(
-            db.or_(
-                KnowledgeBase.tags.ilike(f'%{emotion}%'),
-                KnowledgeBase.category.ilike(f'%{emotion}%')
-            )
-        ).limit(limit).all()
-        
-        return jsonify({
-            "success": True,
-            "data": {
-                "current_emotion": emotion,
-                "knowledge": [k.to_dict() for k in results]
-            }
-        })
-        
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+# ==================== 健康检查 ====================
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok', 'service': 'store-api'})
 
-# 注册路由示例（在app.py中）
-"""
-from my_store_api import store_bp
-app.register_blueprint(store_bp, url_prefix='/api/b-store')
-"""
+if __name__ == '__main__':
+    print("=" * 50)
+    print("用户商城服务")
+    print("端口: 5003")
+    print("=" * 50)
+    app.run(host='0.0.0.0', port=5003, debug=True)
