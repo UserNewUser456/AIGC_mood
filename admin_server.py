@@ -675,7 +675,7 @@ def call_llm_for_extraction(text):
             "max_tokens": 2000
         }
         
-        response = requests.post(DASHSCOPE_API_URL, headers=headers, json=data, timeout=30)
+        response = requests.post(DASHSCOPE_API_URL, headers=headers, json=data, timeout=120)
         
         if response.status_code == 200:
             result = response.json()
