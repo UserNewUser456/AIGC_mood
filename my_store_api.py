@@ -127,9 +127,7 @@ carts = {}  # {user_id: [{product_id, quantity, product_info}]}
 @app.route('/api/store/cart', methods=['GET'])
 def get_cart():
     """获取用户购物车"""
-    user_id = request.args.get('user_id', type=int)
-    if not user_id:
-        return jsonify({'success': False, 'error': '请登录'}), 401
+    user_id = request.args.get('user_id', type=int) or 0  # 默认user_id=0（匿名）
     
     cart_items = carts.get(user_id, [])
     
@@ -153,8 +151,6 @@ def add_to_cart():
     product_id = data.get('product_id')
     quantity = data.get('quantity', 1)
     
-    if not user_id:
-        return jsonify({'success': False, 'error': '请登录'}), 401
     if not product_id:
         return jsonify({'success': False, 'error': '商品ID不能为空'}), 400
     
@@ -192,10 +188,7 @@ def add_to_cart():
 def remove_from_cart(product_id):
     """从购物车删除商品"""
     data = request.get_json() or {}
-    user_id = data.get('user_id')
-    
-    if not user_id:
-        return jsonify({'success': False, 'error': '请登录'}), 401
+    user_id = data.get('user_id') or 0
     
     if user_id in carts:
         carts[user_id] = [item for item in carts[user_id] if item['product_id'] != product_id]
@@ -209,9 +202,6 @@ def update_cart():
     user_id = data.get('user_id')
     product_id = data.get('product_id')
     quantity = data.get('quantity', 1)
-    
-    if not user_id:
-        return jsonify({'success': False, 'error': '请登录'}), 401
     
     if user_id in carts:
         for item in carts[user_id]:
@@ -241,11 +231,8 @@ def clear_cart():
 def create_order():
     """创建订单（模拟支付）"""
     data = request.get_json() or {}
-    user_id = data.get('user_id')
+    user_id = data.get('user_id') or 0
     payment_method = data.get('payment_method', 'alipay')  # alipay, wechat, balance
-    
-    if not user_id:
-        return jsonify({'success': False, 'error': '请登录'}), 401
     
     cart_items = carts.get(user_id, [])
     if not cart_items:
@@ -298,10 +285,7 @@ def create_order():
 @app.route('/api/store/orders', methods=['GET'])
 def get_user_orders():
     """获取用户订单列表"""
-    user_id = request.args.get('user_id', type=int)
-    
-    if not user_id:
-        return jsonify({'success': False, 'error': '请登录'}), 401
+    user_id = request.args.get('user_id', type=int) or 0
     
     conn = get_db()
     cursor = conn.cursor(pymysql.cursors.DictCursor)
