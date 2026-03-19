@@ -391,6 +391,75 @@ def delete_product(product_id):
     
     return jsonify({'success': True})
 
+@app.route('/api/admin/products/<int:product_id>', methods=['GET'])
+def get_product(product_id):
+    """获取单个商品详情"""
+    if not verify_token():
+        return jsonify({'success': False, 'error': '未登录'}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("SELECT * FROM products WHERE id = %s", (product_id,))
+    product = cursor.fetchone()
+    conn.close()
+    
+    if not product:
+        return jsonify({'success': False, 'error': '商品不存在'}), 404
+    
+    return jsonify({'success': True, 'data': product})
+
+@app.route('/api/admin/products/<int:product_id>', methods=['PUT'])
+def update_product(product_id):
+    """编辑商品信息"""
+    if not verify_token():
+        return jsonify({'success': False, 'error': '未登录'}), 401
+    
+    data = request.get_json() or {}
+    
+    # 构建更新语句
+    updates = []
+    values = []
+    fields = ['name', 'description', 'price', 'original_price', 'category', 'stock', 'healing_tags', 'image_url']
+    
+    for field in fields:
+        if field in data and data[field] is not None:
+            updates.append(f"{field} = %s")
+            values.append(data[field])
+    
+    if not updates:
+        return jsonify({'success': False, 'error': '没有要更新的内容'}), 400
+    
+    values.append(product_id)
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(f"UPDATE products SET {', '.join(updates)} WHERE id = %s", values)
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'success': True, 'message': '商品更新成功'})
+
+@app.route('/api/admin/products/<int:product_id>/status', methods=['POST'])
+def toggle_product_status(product_id):
+    """上架/下架商品"""
+    if not verify_token():
+        return jsonify({'success': False, 'error': '未登录'}), 401
+    
+    data = request.get_json() or {}
+    status = data.get('status')  # 1: 上架, 0: 下架
+    
+    if status is None:
+        return jsonify({'success': False, 'error': '请指定状态'}), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE products SET is_active = %s WHERE id = %s", (status, product_id))
+    conn.commit()
+    conn.close()
+    
+    status_text = "上架" if status == 1 else "下架"
+    return jsonify({'success': True, 'message': f'商品已{status_text}'})
+
 # ==================== 风险预警接口 ====================
 
 @app.route('/api/admin/risks', methods=['GET'])
