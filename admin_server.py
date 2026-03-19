@@ -567,6 +567,95 @@ def get_users():
     
     return jsonify({'success': True, 'data': users})
 
+@app.route('/api/admin/users/today', methods=['GET'])
+def get_today_users():
+    """获取今日新增用户统计"""
+    if not verify_token():
+        return jsonify({'success': False, 'error': '未登录'}), 401
+    
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    # 今日新增用户
+    cursor.execute("SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = %s", (today,))
+    today_count = cursor.fetchone()['count']
+    
+    # 昨日新增用户
+    cursor.execute("SELECT COUNT(*) as count FROM users WHERE DATE(created_at) = DATE_SUB(%s, INTERVAL 1 DAY)", (today,))
+    yesterday_count = cursor.fetchone()['count']
+    
+    # 今日用户列表
+    cursor.execute("""
+        SELECT id, username, email, created_at 
+        FROM users 
+        WHERE DATE(created_at) = %s 
+        ORDER BY created_at DESC
+    """, (today,))
+    today_users = cursor.fetchall()
+    
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'today_count': today_count,
+            'yesterday_count': yesterday_count,
+            'growth': today_count - yesterday_count,
+            'users': today_users
+        }
+    })
+
+@app.route('/api/admin/users/high-risk', methods=['GET'])
+def get_high_risk_users():
+    """获取高风险用户统计"""
+    if not verify_token():
+        return jsonify({'success': False, 'error': '未登录'}), 401
+    
+    conn = get_db()
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    
+    # 高风险用户数量（预警级别为high或critical且未处理）
+    cursor.execute("""
+        SELECT COUNT(DISTINCT user_id) as count 
+        FROM risk_alerts 
+        WHERE risk_level IN ('high', 'critical') AND handled = 0
+    """)
+    high_risk_count = cursor.fetchone()['count']
+    
+    # 高风险用户列表
+    cursor.execute("""
+        SELECT r.id, r.user_id, r.risk_level, r.risk_type, r.content, r.created_at,
+               u.username, u.email
+        FROM risk_alerts r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.risk_level IN ('high', 'critical') AND r.handled = 0
+        ORDER BY r.created_at DESC
+        LIMIT 50
+    """)
+    high_risk_users = cursor.fetchall()
+    
+    # 按风险级别统计
+    cursor.execute("""
+        SELECT risk_level, COUNT(*) as count 
+        FROM risk_alerts 
+        WHERE handled = 0
+        GROUP BY risk_level
+    """)
+    risk_stats = cursor.fetchall()
+    
+    conn.close()
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'high_risk_count': high_risk_count,
+            'risk_stats': risk_stats,
+            'users': high_risk_users
+        }
+    })
+
 # ==================== 知识库管理（基于Neo4j）====================
 
 # Neo4j配置
