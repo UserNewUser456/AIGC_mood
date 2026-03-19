@@ -688,7 +688,7 @@ def call_llm_for_extraction(text):
         return None
     except Exception as e:
         print(f"[ERROR] LLM提取失败: {e}")
-        return None
+        return {'error': str(e)}
 
 def add_to_knowledge_graph(entities, relationships):
     """将实体和关系添加到Neo4j"""
@@ -749,16 +749,23 @@ def import_knowledge():
         extracted = call_llm_for_extraction(text)
         
         if not extracted:
-            return jsonify({'success': False, 'error': '文本解析失败'}), 500
+            return jsonify({'success': False, 'error': '文本解析失败，请检查LLM API连接'}), 500
+        
+        # 检查是否有错误返回
+        if isinstance(extracted, dict) and 'error' in extracted:
+            return jsonify({'success': False, 'error': f'LLM调用失败: {extracted["error"]}'}), 500
         
         entities = extracted.get('entities', [])
         relationships = extracted.get('relationships', [])
         
         if not entities:
-            return jsonify({'success': False, 'error': '未提取到有效知识'}), 400
+            return jsonify({'success': False, 'error': '未提取到有效知识，请确保文本包含实体信息'}), 400
         
         # 2. 添加到Neo4j
-        success = add_to_knowledge_graph(entities, relationships)
+        try:
+            success = add_to_knowledge_graph(entities, relationships)
+        except Exception as neo4j_e:
+            return jsonify({'success': False, 'error': f'Neo4j错误: {str(neo4j_e)}'}), 500
         
         if not success:
             return jsonify({'success': False, 'error': '添加到知识图谱失败'}), 500
