@@ -357,8 +357,8 @@ def create_product():
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT INTO products (name, description, price, original_price, image_url, category, stock, healing_tags) 
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            """INSERT INTO products (name, description, price, original_price, image_url, category, stock, healing_tags, is_active) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)""",
             (name, description, float(price), 
              float(original_price) if original_price else None, 
              image_url, 
