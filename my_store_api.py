@@ -309,6 +309,6 @@ def health():
 if __name__ == '__main__':
     print("=" * 50)
     print("用户商城服务")
-    print("端口: 5000")
+    print("端口: 5003")
     print("=" * 50)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5003, debug=True)
